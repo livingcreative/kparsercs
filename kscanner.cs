@@ -415,17 +415,18 @@ namespace KParserCS
 
             // check match for first allowed character
             SourceToken cs;
-            if (GetCharToken(nextline, escapes, false, out cs) && from.Contains(_source.CharCurrent))
-                _source.Advance();
+            if (GetCharToken(nextline, escapes, false, out cs) &&
+                (cs.Length > 1 || from.Contains(_source.CharCurrent)))
+                _source.Advance(cs.Length);
             else
                 return ScanResult.NoMatch;
 
             // continue while characters match "whileset"
             token = cs;
             while (GetCharToken(nextline, escapes, false, out cs) &&
-                   whileset.Contains(_source.CharCurrent))
+                   (cs.Length > 1 || whileset.Contains(_source.CharCurrent)))
             {
-                _source.Advance();
+                _source.Advance(cs.Length);
                 ++token.Length;
             }
 
@@ -452,7 +453,7 @@ namespace KParserCS
         // with "whileset" character set
         // could be used for scanning simple tokens which start from specific sequence
         //      hex number example: FromTokenWhile("0x", [0 - 9, A - F, a - f], ...)
-        protected ScanResult FromTokenWhile(string from, CharSet whileset, bool nextline, int escapes, bool increment, out SourceToken token)
+        protected ScanResult FromTokenWhile(string from, CharSet whileset, bool nextline, int escapes, bool increment, bool notemptywhile, out SourceToken token)
         {
             token = new SourceToken(_source.Position);
 
@@ -465,10 +466,17 @@ namespace KParserCS
             // continue while characters match "whileset"
             SourceToken cs;
             while (GetCharToken(nextline, escapes, false, out cs) &&
-                   whileset.Contains(_source.CharCurrent))
+                   (cs.Length > 1 || whileset.Contains(_source.CharCurrent)))
             {
-                _source.Advance();
+                _source.Advance(cs.Length);
                 ++token.Length;
+            }
+
+            // if notemptywhile requested total length should be more than from length
+            if (notemptywhile && token.Length <= from.Length)
+            {
+                _source.Advance(-token.Length);
+                return ScanResult.NoMatch;
             }
 
             // if increment wasn't requeseted - advance back (to position which was before this call)
