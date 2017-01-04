@@ -142,6 +142,12 @@ namespace KParserCS
                 _set = new List<Tuple<char, char>>();
             }
 
+            // construct CharSet as a copy of another CharSet
+            public CharSet(CharSet source)
+            {
+                _set = new List<Tuple<char, char>>(source._set);
+            }
+
             // add a single character to the set
             public void Add(char ch)
             {
@@ -228,12 +234,14 @@ namespace KParserCS
         }
 
         // checks if current and following source characters form some escape sequence
+        //      context - implementation defined context code of required escape sequences
+        //          0 value is never passed as context
         //      returns length of escape sequence or 0 if none found
         // Scanner doesn't handle any escape sequences, it's left up to specific
         // scanner implementation
         //      override this property to handle escape character sequences
         //      (examples are \xxx sequences inside string literals)
-        protected virtual int IsEscape => 0;
+        protected virtual int IsEscape(int context) => 0;
 
         // checks if two string are equal from scanner's point of view
         // this function is used for character sequences comparison
@@ -303,7 +311,8 @@ namespace KParserCS
 
         // get current character token
         //      nextline - indicates if returning of line end sequence is allowed
-        //      escapes  - indicates if escape characters should be returned
+        //      escapes  - implementation defined context value for escape sequences
+        //          0 if escape sequences should not be cheked
         //      token    - resulting token at current source position
         //      increment - advance current source position in case of match
         //      returns true if token can be read at current position with given options
@@ -311,7 +320,7 @@ namespace KParserCS
         // returns false
         // if current position is at the end of line and nextline is true whole line
         // break sequence is returned as a token
-        protected bool GetCharToken(bool nextline, bool escapes, bool increment, out SourceToken token)
+        protected bool GetCharToken(bool nextline, int escapes, bool increment, out SourceToken token)
         {
             token = new SourceToken(_source.Position);
 
@@ -322,8 +331,8 @@ namespace KParserCS
             if (len == 0)
             {
                 // check for possible escape character, if requested
-                if (escapes)
-                    len = IsEscape;
+                if (escapes != 0)
+                    len = IsEscape(escapes);
 
                 // no escape found and end of source reached - return false
                 if (len == 0 && _source.IsEnd)
@@ -388,6 +397,8 @@ namespace KParserCS
         //      from      - char set which indicates allowed starting token characters
         //      whileset  - char set of characters which allowed to be included in token
         //      nextline  - indicates whether token is allowed to span for multiple lines
+        //      escapes   - implementation defined context value for escape sequences
+        //          0 if escape sequences should not be cheked
         //      increment - indicates if current source position should be incremented by
         //          the length of found token
         //      token     - resulting token
@@ -398,20 +409,20 @@ namespace KParserCS
         // could be used for scanning simple tokens like identifiers or numbers
         //      number example:     FromSetWhile([0 - 9], [0 - 9], ...)
         //      identifier example: FromSetWhile([A - Z, a - z, _], [A - Z, a - z, _, 0 - 9], ...)
-        protected ScanResult FromSetWhile(CharSet from, CharSet whileset, bool nextline, bool increment, out SourceToken token)
+        protected ScanResult FromSetWhile(CharSet from, CharSet whileset, bool nextline, int escapes, bool increment, out SourceToken token)
         {
             token = new SourceToken();
 
             // check match for first allowed character
             SourceToken cs;
-            if (GetCharToken(nextline, false, false, out cs) && from.Contains(_source.CharCurrent))
+            if (GetCharToken(nextline, escapes, false, out cs) && from.Contains(_source.CharCurrent))
                 _source.Advance();
             else
                 return ScanResult.NoMatch;
 
             // continue while characters match "whileset"
             token = cs;
-            while (GetCharToken(nextline, false, false, out cs) &&
+            while (GetCharToken(nextline, escapes, false, out cs) &&
                    whileset.Contains(_source.CharCurrent))
             {
                 _source.Advance();
@@ -430,6 +441,8 @@ namespace KParserCS
         //          empty or null string is not allowed!
         //      whileset  - char set of characters which allowed to be included in token
         //      nextline  - indicates whether token is allowed to span for multiple lines
+        //      escapes   - implementation defined context value for escape sequences
+        //          0 if escape sequences should not be cheked
         //      increment - indicates if current source position should be incremented by
         //          the length of found token
         //      token     - resulting token
@@ -439,7 +452,7 @@ namespace KParserCS
         // with "whileset" character set
         // could be used for scanning simple tokens which start from specific sequence
         //      hex number example: FromTokenWhile("0x", [0 - 9, A - F, a - f], ...)
-        protected ScanResult FromTokenWhile(string from, CharSet whileset, bool nextline, bool increment, out SourceToken token)
+        protected ScanResult FromTokenWhile(string from, CharSet whileset, bool nextline, int escapes, bool increment, out SourceToken token)
         {
             token = new SourceToken(_source.Position);
 
@@ -451,7 +464,7 @@ namespace KParserCS
 
             // continue while characters match "whileset"
             SourceToken cs;
-            while (GetCharToken(nextline, false, false, out cs) &&
+            while (GetCharToken(nextline, escapes, false, out cs) &&
                    whileset.Contains(_source.CharCurrent))
             {
                 _source.Advance();
@@ -471,7 +484,8 @@ namespace KParserCS
         //      totoken   - character sequence with which token ends
         //          empty or null string is not allowed!
         //      nextline  - indicates whether token is allowed to span for multiple lines
-        //      escapes   - indicates whether escape sequences should be accounted
+        //      escapes   - implementation defined context value for escape sequences
+        //          0 if escape sequences should not be cheked
         //      increment - indicates if current source position should be incremented by
         //          the length of found token
         //      token     - resulting token
@@ -479,7 +493,7 @@ namespace KParserCS
         // this function might return partial match
         // could be used for scanning tokens contained within paired character sequences
         //      C-style comment example: FromTo("/*", "*/", ...)
-        protected ScanResult FromTo(string fromtoken, string totoken, bool nextline, bool escapes, bool increment, out SourceToken token)
+        protected ScanResult FromTo(string fromtoken, string totoken, bool nextline, int escapes, bool increment, out SourceToken token)
         {
             token = new SourceToken(_source.Position);
 
