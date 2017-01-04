@@ -170,7 +170,7 @@ namespace KParserCS
 
 
         private IScannerSource _source; // scanner source
-        private int             _lines; // source lines counter
+        private int            _lines;  // source lines counter
 
 
         // construct scanner with specified source
@@ -243,7 +243,7 @@ namespace KParserCS
         //      (examples are \xxx sequences inside string literals)
         protected virtual int IsEscape(int context) => 0;
 
-        // checks if two string are equal from scanner's point of view
+        // checks if two strings are equal from scanner's point of view
         // this function is used for character sequences comparison
         //      by default Scanner uses built-in Equals() to compare strings
         // override this to handle comparison in your own way
@@ -366,7 +366,7 @@ namespace KParserCS
         //      c         - character to check match for
         //      increment - advance current source position in case of match
         //      returns true if current source character matches given character
-        protected bool CheckCharacter(char c, bool increment)
+        protected bool Check(char c, bool increment)
         {
             var result = !_source.IsEnd && _source.CharCurrent == c;
 
@@ -381,7 +381,7 @@ namespace KParserCS
         //      increment - advance current source position in case of match
         //      returns true if current source character sequence matches given sequence
         // empty or null string is not allowed!
-        protected bool CheckSequence(string s, bool increment)
+        protected bool Check(string s, bool increment)
         {
             var result =
                 HasCharacters(s.Length) &&
@@ -391,6 +391,61 @@ namespace KParserCS
                 _source.Advance(s.Length);
 
             return result;
+        }
+
+        // checks if current source character matches one of provided characters
+        //      characters - characters to check match for
+        //      increment  - advance current source position in case of match
+        //      returns true if one of characters matched
+        protected bool CheckAny(IEnumerable<char> characters, bool increment)
+        {
+            foreach (var c in characters)
+            {
+                if (Check(c, increment))
+                    return true;
+            }
+
+            return false;
+        }
+
+        // checks if current source character matches one of provided characters
+        //      characters - characters to check match for
+        //      increment  - advance current source position in case of match
+        //      token      - resulting matched token
+        //      returns true if one of characters matched
+        protected bool CheckAny(IEnumerable<char> characters, bool increment, out SourceToken token)
+        {
+            token = new SourceToken(_source.Position);
+            var result = CheckAny(characters, increment);
+
+            if (result)
+                token.Length = 1;
+
+            return result;
+        }
+
+        // checks if current source sequence matches one of given character sequences
+        //      compounds - sequences to check
+        //          shoul be ordered from longest to shortest if
+        //          check is performed for compound characters
+        //      increment - advance current source position in case of match
+        //      token     - resulting matched token
+        //      returns true if match was found
+        // empty or null strings are not allowed!
+        protected bool Check(IEnumerable<string> compounds, bool increment, out SourceToken token)
+        {
+            token = new SourceToken(_source.Position);
+
+            foreach (var s in compounds)
+            {
+                if (Check(s, increment))
+                {
+                    token.Length = s.Length;
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         // matches token given by starting character set and allowed character set
@@ -458,7 +513,7 @@ namespace KParserCS
             token = new SourceToken(_source.Position);
 
             // check "from" sequence match
-            if (!CheckSequence(from, true))
+            if (!Check(from, true))
                 return ScanResult.NoMatch;
 
             token.Length += from.Length;
@@ -506,7 +561,7 @@ namespace KParserCS
             token = new SourceToken(_source.Position);
 
             // check "from" sequence match
-            if (!CheckSequence(fromtoken, true))
+            if (!Check(fromtoken, true))
                 return ScanResult.NoMatch;
 
             token.Length += fromtoken.Length;
@@ -517,7 +572,7 @@ namespace KParserCS
             SourceToken cs;
             while (GetCharToken(nextline, escapes, false, out cs))
             {
-                if (CheckSequence(totoken, true))
+                if (Check(totoken, true))
                 {
                     token.Length += totoken.Length;
                     result = ScanResult.Match;
