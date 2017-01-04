@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 
-namespace KScanner
+namespace KParserCS
 {
     // Token
     //      represents token as subrange inside source text
