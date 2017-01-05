@@ -413,8 +413,8 @@ namespace KParserCS
 
         // get current character token
         //      nextline - indicates if returning of line end sequence is allowed
-        //      escapes  - implementation defined context value for escape sequences
-        //          0 if escape sequences should not be cheked
+        //      escapes  - optional function to check for compound escape char sequences
+        //          should return length of found escape sequence or 0 if none found
         //      token    - resulting token at current source position
         //      increment - advance current source position in case of match
         //      returns true if token can be read at current position with given options
@@ -468,8 +468,8 @@ namespace KParserCS
         //      from      - char set which indicates allowed starting token characters
         //      whileset  - char set of characters which allowed to be included in token
         //      nextline  - indicates whether token is allowed to span for multiple lines
-        //      escapes   - implementation defined context value for escape sequences
-        //          0 if escape sequences should not be cheked
+        //      escapes   - optional function to check for compound escape char sequences
+        //          should return length of found escape sequence or 0 if none found
         //      increment - indicates if current source position should be incremented by
         //          the length of found token
         //      token     - resulting token
@@ -513,8 +513,8 @@ namespace KParserCS
         //          empty or null string is not allowed!
         //      whileset  - char set of characters which allowed to be included in token
         //      nextline  - indicates whether token is allowed to span for multiple lines
-        //      escapes   - implementation defined context value for escape sequences
-        //          0 if escape sequences should not be cheked
+        //      escapes   - optional function to check for compound escape char sequences
+        //          should return length of found escape sequence or 0 if none found
         //      increment - indicates if current source position should be incremented by
         //          the length of found token
         //      token     - resulting token
@@ -563,8 +563,8 @@ namespace KParserCS
         //      totoken   - character sequence with which token ends
         //          empty or null string is not allowed!
         //      nextline  - indicates whether token is allowed to span for multiple lines
-        //      escapes   - implementation defined context value for escape sequences
-        //          0 if escape sequences should not be cheked
+        //      escapes   - optional function to check for compound escape char sequences
+        //          should return length of found escape sequence or 0 if none found
         //      increment - indicates if current source position should be incremented by
         //          the length of found token
         //      token     - resulting token
