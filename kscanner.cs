@@ -343,16 +343,19 @@ namespace KParserCS
         // checks if current source character matches one of provided characters
         //      characters - characters to check match for
         //      increment  - advance current source position in case of match
-        //      returns true if one of characters matched
-        protected bool CheckAny(IEnumerable<char> characters, bool increment)
+        //      returns character index of matched character, -1 otherwise
+        protected int CheckAny(IEnumerable<char> characters, bool increment)
         {
+            int result = 0;
+
             foreach (var c in characters)
             {
                 if (Check(c, increment))
-                    return true;
+                    return result;
+                ++result;
             }
 
-            return false;
+            return -1;
         }
 
         // checks if current source character matches one of provided characters
@@ -363,12 +366,38 @@ namespace KParserCS
         protected bool CheckAny(IEnumerable<char> characters, bool increment, out SourceToken token)
         {
             token = new SourceToken(_source.Position);
-            var result = CheckAny(characters, increment);
+
+            var result = CheckAny(characters, increment) != -1;
 
             if (result)
                 token.Length = 1;
 
             return result;
+        }
+
+        // checks if current source sequence matches one of given character sequences
+        //      compounds - sequences to check
+        //          shoul be ordered from longest to shortest if
+        //          check is performed for compound characters
+        //      increment - advance current source position in case of match
+        //      length    - length of the matched string
+        //      returns index of matched string, -1 otherwise
+        // empty or null strings are not allowed!
+        protected int CheckAny(IEnumerable<string> compounds, bool increment, out int length)
+        {
+            int result = 0;
+            length = 0;
+
+            foreach (var s in compounds)
+            {
+                if (Check(s, increment))
+                {
+                    length = s.Length;
+                    return result;
+                }
+            }
+
+            return -1;
         }
 
         // checks if current source sequence matches one of given character sequences
@@ -382,17 +411,14 @@ namespace KParserCS
         protected bool CheckAny(IEnumerable<string> compounds, bool increment, out SourceToken token)
         {
             token = new SourceToken(_source.Position);
+            int length = 0;
 
-            foreach (var s in compounds)
-            {
-                if (Check(s, increment))
-                {
-                    token.Length = s.Length;
-                    return true;
-                }
-            }
+            var result = CheckAny(compounds, increment, out length) != -1;
 
-            return false;
+            if (result)
+                token.Length = length;
+
+            return result;
         }
 
         // get current character token

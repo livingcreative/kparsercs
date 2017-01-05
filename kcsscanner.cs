@@ -267,12 +267,12 @@ namespace KParserCS
             if (result == ScanResult.Match)
             {
                 // optional E/e part
-                if (CheckAny("eE", true))
+                if (CheckAny("eE", true) != -1)
                 {
                     ++token.Length;
 
                     // optional +/- after exponent sign
-                    if (CheckAny("+-", true))
+                    if (CheckAny("+-", true) != -1)
                         ++token.Length;
 
                     // exponent digits
@@ -282,7 +282,7 @@ namespace KParserCS
                 }
 
                 // optional postfix
-                if (CheckAny("fdFD", true))
+                if (CheckAny("fdFD", true) != -1)
                     ++token.Length;
             }
 
