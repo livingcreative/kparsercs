@@ -557,6 +557,28 @@ namespace KParserCS
             return ScanResult.Match;
         }
 
+        // matches token given by possible starting character sequences and allowed character set
+        // all parameters are same as for previous function, except from is a list of possible tokens
+        protected ScanResult FromTokenWhile(IEnumerable<string> from, CharSet whileset, bool nextline, Func<int> escapes, bool increment, bool notemptywhile, out SourceToken token)
+        {
+            var result = ScanResult.NoMatch;
+
+            foreach (var tok in from)
+            {
+                result = FromTokenWhile(
+                    tok, whileset, nextline, escapes, increment,
+                    notemptywhile, out token
+                );
+
+                if (result != ScanResult.NoMatch)
+                    break;
+            }
+
+            token = new SourceToken();
+
+            return result;
+        }
+
         // matches token given by starting and ending character sequences
         //      fromtoken - character sequence with which token starts
         //          empty or null string is not allowed!
