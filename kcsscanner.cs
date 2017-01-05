@@ -12,9 +12,6 @@ namespace KParserCS
         private List<string> escapes;
         private List<string> compounds;
 
-        private const int CTX_IDENTIFIER = 1;
-        private const int CTX_CHARACTER  = 2;
-
         public CSScanner(IScannerSource source) :
             base(source)
         {
@@ -147,7 +144,7 @@ namespace KParserCS
                             type = TokenType.String;
                         else
                         {
-                            GetCharToken(false, 0, true, out token);
+                            GetCharToken(false, null, true, out token);
 
                             SourceToken ident;
                             if (!ScanIdent(out ident))
@@ -175,7 +172,7 @@ namespace KParserCS
                             type = TokenType.Symbol;
                         else
                             // all other stuff (unknown/invalid symbols)
-                            GetCharToken(false, 0, true, out token);
+                            GetCharToken(false, null, true, out token);
                     }
 
                     yield return new Token(type, token);
@@ -185,14 +182,20 @@ namespace KParserCS
             }
         }
 
-        protected override int IsEscape(int context)
+        private enum EscapeCheckContext
+        {
+            Identifier,
+            Character
+        }
+
+        private int IsEscape(EscapeCheckContext context)
         {
             SourceToken token;
 
-            if (FromTokenWhile("\\u", hexadecimal, false, 0, false, false, out token) == ScanResult.Match)
+            if (FromTokenWhile("\\u", hexadecimal, false, null, false, false, out token) == ScanResult.Match)
                 return token.Length;
 
-            if (context == CTX_CHARACTER)
+            if (context == EscapeCheckContext.Character)
             {
                 foreach (var s in escapes)
                 {
@@ -200,7 +203,7 @@ namespace KParserCS
                         return s.Length;
                 }
 
-                if (FromTokenWhile("\\x", hexadecimal, false, 0, false, false, out token) == ScanResult.Match)
+                if (FromTokenWhile("\\x", hexadecimal, false, null, false, false, out token) == ScanResult.Match)
                     return token.Length;
             }
 
@@ -209,18 +212,20 @@ namespace KParserCS
 
         private bool ScanIdent(out SourceToken token)
         {
-            var result =
-                FromSetWhile(alpha, alphanum, false, CTX_IDENTIFIER, true, out token);
+            var result = FromSetWhile(
+                alpha, alphanum, false, () => IsEscape(EscapeCheckContext.Identifier),
+                true, out token
+            );
 
             return result == ScanResult.Match;
         }
 
         private bool ScanComment(out SourceToken token)
         {
-            var result = FromTokenWhile("//", all, false, 0, true, false, out token);
+            var result = FromTokenWhile("//", all, false, null, true, false, out token);
 
             if (result == ScanResult.NoMatch)
-                result = FromTo("/*", "*/", true, 0, true, out token);
+                result = FromTo("/*", "*/", true, null, true, out token);
 
             return result != ScanResult.NoMatch;
         }
@@ -228,13 +233,19 @@ namespace KParserCS
         private bool ScanString(bool verbatim, out SourceToken token)
         {
             if (verbatim)
-                return FromTo("@\"", "\"", true, 0, true, out token) != ScanResult.NoMatch;
+                return FromTo("@\"", "\"", true, null, true, out token) != ScanResult.NoMatch;
             else
             {
-                var result = FromTo("\"", "\"", false, CTX_CHARACTER, true, out token);
+                var result = FromTo(
+                    "\"", "\"", false, () => IsEscape(EscapeCheckContext.Character),
+                    true, out token
+                );
 
                 if (result == ScanResult.NoMatch)
-                    result = FromTo("$\"", "\"", false, CTX_CHARACTER, true, out token);
+                    result = FromTo(
+                        "$\"", "\"", false, () => IsEscape(EscapeCheckContext.Character),
+                        true, out token
+                    );
 
                 return result != ScanResult.NoMatch;
             }
@@ -242,27 +253,31 @@ namespace KParserCS
 
         private bool ScanCharacter(out SourceToken token)
         {
-            var result = FromTo("'", "'", false, CTX_CHARACTER, true, out token);
+            var result = FromTo(
+                "'", "'", false, () => IsEscape(EscapeCheckContext.Character),
+                true, out token
+            );
+
             return result != ScanResult.NoMatch;
         }
 
         private bool ScanInteger(out SourceToken token)
         {
             var result =
-                FromTokenWhile("0x", hexadecimal, false, 0, true, false, out token);
+                FromTokenWhile("0x", hexadecimal, false, null, true, false, out token);
 
             if (result == ScanResult.NoMatch)
-                result = FromTokenWhile("0X", hexadecimal, false, 0, true, false, out token);
+                result = FromTokenWhile("0X", hexadecimal, false, null, true, false, out token);
 
             if (result == ScanResult.NoMatch)
-                result = FromSetWhile(numeric, numeric, false, 0, true, out token);
+                result = FromSetWhile(numeric, numeric, false, null, true, out token);
 
             return result == ScanResult.Match;
         }
 
         private bool ScanReal(out SourceToken token)
         {
-            var result = FromTokenWhile(".", numeric, false, 0, true, true, out token);
+            var result = FromTokenWhile(".", numeric, false, null, true, true, out token);
 
             if (result == ScanResult.Match)
             {
@@ -277,7 +292,7 @@ namespace KParserCS
 
                     // exponent digits
                     SourceToken exp;
-                    if (FromSetWhile(numeric, numeric, false, 0, true, out exp) == ScanResult.Match)
+                    if (FromSetWhile(numeric, numeric, false, null, true, out exp) == ScanResult.Match)
                         token.Length += exp.Length;
                 }
 
@@ -291,7 +306,7 @@ namespace KParserCS
 
         private bool ScanPreprocessor(out SourceToken token)
         {
-            var result = FromTokenWhile("#", all, false, 0, true, false, out token);
+            var result = FromTokenWhile("#", all, false, null, true, false, out token);
             return result == ScanResult.Match;
         }
     }

@@ -233,16 +233,6 @@ namespace KParserCS
             }
         }
 
-        // checks if current and following source characters form some escape sequence
-        //      context - implementation defined context code of required escape sequences
-        //          0 value is never passed as context
-        //      returns length of escape sequence or 0 if none found
-        // Scanner doesn't handle any escape sequences, it's left up to specific
-        // scanner implementation
-        //      override this property to handle escape character sequences
-        //      (examples are \xxx sequences inside string literals)
-        protected virtual int IsEscape(int context) => 0;
-
         // checks if two strings are equal from scanner's point of view
         // this function is used for character sequences comparison
         //      by default Scanner uses built-in Equals() to compare strings
@@ -432,7 +422,7 @@ namespace KParserCS
         // returns false
         // if current position is at the end of line and nextline is true whole line
         // break sequence is returned as a token
-        protected bool GetCharToken(bool nextline, int escapes, bool increment, out SourceToken token)
+        protected bool GetCharToken(bool nextline, Func<int> escapes, bool increment, out SourceToken token)
         {
             token = new SourceToken(_source.Position);
 
@@ -443,8 +433,8 @@ namespace KParserCS
             if (len == 0)
             {
                 // check for possible escape character, if requested
-                if (escapes != 0)
-                    len = IsEscape(escapes);
+                if (escapes != null)
+                    len = escapes();
 
                 // no escape found and end of source reached - return false
                 if (len == 0 && _source.IsEnd)
@@ -490,7 +480,7 @@ namespace KParserCS
         // could be used for scanning simple tokens like identifiers or numbers
         //      number example:     FromSetWhile([0 - 9], [0 - 9], ...)
         //      identifier example: FromSetWhile([A - Z, a - z, _], [A - Z, a - z, _, 0 - 9], ...)
-        protected ScanResult FromSetWhile(CharSet from, CharSet whileset, bool nextline, int escapes, bool increment, out SourceToken token)
+        protected ScanResult FromSetWhile(CharSet from, CharSet whileset, bool nextline, Func<int> escapes, bool increment, out SourceToken token)
         {
             token = new SourceToken();
 
@@ -534,7 +524,7 @@ namespace KParserCS
         // with "whileset" character set
         // could be used for scanning simple tokens which start from specific sequence
         //      hex number example: FromTokenWhile("0x", [0 - 9, A - F, a - f], ...)
-        protected ScanResult FromTokenWhile(string from, CharSet whileset, bool nextline, int escapes, bool increment, bool notemptywhile, out SourceToken token)
+        protected ScanResult FromTokenWhile(string from, CharSet whileset, bool nextline, Func<int> escapes, bool increment, bool notemptywhile, out SourceToken token)
         {
             token = new SourceToken(_source.Position);
 
@@ -582,7 +572,7 @@ namespace KParserCS
         // this function might return partial match
         // could be used for scanning tokens contained within paired character sequences
         //      C-style comment example: FromTo("/*", "*/", ...)
-        protected ScanResult FromTo(string fromtoken, string totoken, bool nextline, int escapes, bool increment, out SourceToken token)
+        protected ScanResult FromTo(string fromtoken, string totoken, bool nextline, Func<int> escapes, bool increment, out SourceToken token)
         {
             token = new SourceToken(_source.Position);
 
