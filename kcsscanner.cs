@@ -197,11 +197,9 @@ namespace KParserCS
 
             if (context == EscapeCheckContext.Character)
             {
-                foreach (var s in escapes)
-                {
-                    if (Check(s, false))
-                        return s.Length;
-                }
+                int length;
+                if (CheckAny(escapes, false, out length) != -1)
+                    return length;
 
                 if (FromTokenWhile("\\x", hexadecimal, false, null, false, false, out token) == ScanResult.Match)
                     return token.Length;
