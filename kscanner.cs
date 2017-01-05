@@ -270,6 +270,9 @@ namespace KParserCS
         // do not try to read CharCurrent when end of source is reached
         protected char CharCurrent => _source.CharCurrent;
 
+        // returns parsed lines count
+        protected int LineCount => _lines;
+
         // checks whether there are at least count characters remaining before source end
         protected bool HasCharacters(int count) =>
             count <= (_source.Length - _source.Position);
