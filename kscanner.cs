@@ -525,7 +525,7 @@ namespace KParserCS
                    (cs.Length > 1 || whileset.Contains(_source.CharCurrent)))
             {
                 _source.Advance(cs.Length);
-                ++token.Length;
+                token.Length += cs.Length;
             }
 
             // if increment wasn't requeseted - advance back (to position which was before this call)
@@ -569,7 +569,7 @@ namespace KParserCS
                    (cs.Length > 1 || whileset.Contains(_source.CharCurrent)))
             {
                 _source.Advance(cs.Length);
-                ++token.Length;
+                token.Length += cs.Length;
             }
 
             // if notemptywhile requested total length should be more than from length
