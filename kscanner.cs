@@ -185,7 +185,7 @@ namespace KParserCS
         // character sequence (string) comparison delegate type
         protected delegate bool SequenceEqual(string a, string b);
 
-        protected delegate ScanResult ScanCallback(out SourceToken token);
+        protected delegate bool ScanCallback(out SourceToken token);
 
         // following members might be overriden by specific scanner implementation
         // Scanner class provides only basic implementation
@@ -252,7 +252,7 @@ namespace KParserCS
         {
             foreach (var scan in scans)
             {
-                if (Match(scan(out token)))
+                if (scan(out token))
                     return true;
             }
 
