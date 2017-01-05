@@ -2,16 +2,19 @@
 
 namespace KParserCS
 {
+    // basic C# tokenizer example
     public class CSScanner : Scanner
     {
-        private CharSet all;
-        private CharSet numeric;
-        private CharSet hexadecimal;
-        private CharSet alpha;
-        private CharSet alphanum;
-        private List<string> escapes;
-        private List<string> compounds;
+        private CharSet all;          // all characters set
+        private CharSet numeric;      // numeric [0 - 9] characters set
+        private CharSet hexadecimal;  // hexadecimal [0 - 9, A - F, a - f] characters set
+        private CharSet alpha;        // alpha characters set (not exact, unicode range needs refinement)
+        private CharSet alphanum;     // alpha + numeric characters set
+        private string[] hexprefixes; // hexadecimal prefixes
+        private string[] escapes;     // all predefined escape sequences
+        private string[] compounds;   // all compound sequences
 
+        // construct scanner instance for given source
         public CSScanner(IScannerSource source) :
             base(source)
         {
@@ -36,13 +39,18 @@ namespace KParserCS
             alphanum = new CharSet(alpha);
             alphanum.Add('0', '9');
 
-            escapes = new List<string>()
+            hexprefixes = new string[]
+            {
+                "0x", "0X"
+            };
+
+            escapes = new string[]
             {
                 "\\'", "\\\"", "\\\\",
                 "\\t", "\\r", "\\n", "\\b", "\\f", "\\0"
             };
 
-            compounds = new List<string>()
+            compounds = new string[]
             {
                 "<<=", ">>=",
                 "||", "&&", "==", "!=", ">=", "<=",
@@ -52,19 +60,23 @@ namespace KParserCS
             };
         }
 
+
+        // type of token
         public enum TokenType
         {
-            Identifier,
-            Number,
-            RealNumber,
-            Character,
-            String,
-            Comment,
-            Symbol,
-            Preprocessor,
-            Unknown
+            Identifier,   // any valid identifier (including possible keywords)
+            Number,       // any integer number, decimal or hexadecimal (might be incomplete)
+            RealNumber,   // any real (float or double) number (might be incomplete)
+            Character,    // character (single quoted literal, might be malformed)
+            String,       // any string (including $ and @ strings, might be incomplete or malformed)
+            Comment,      // any comment (single- or multi-line)
+            Symbol,       // any standalone character or compiund sequence
+            Preprocessor, // preprocessor token (as a whole, not parsed, including possible comments inside)
+            Unknown       // invalid character
         }
 
+        // basic C# token class
+        //      stores type of token and SourceToken value
         public class Token
         {
             TokenType   _type;
@@ -80,66 +92,95 @@ namespace KParserCS
             public SourceToken SourceToken => _token;
         }
 
+
+        // get source tokens
         public IEnumerable<Token> Tokens
         {
             get
             {
+                // while end of source isn't reached move to next possible token and
+                // scan it
                 while (NextCharToken(true))
                 {
-                    // this is so stupid, no need to construct it here
+                    // at this point current source position is at some non spacing
+                    // character
+
+                    // actually token is always being assigned here, but c# compiler
+                    // doesn't think so, so empty one is constructed here
                     SourceToken token = new SourceToken();
 
                     var type = TokenType.Unknown;
                     var c = CharCurrent;
 
+                    // here all possible scans could be run in a loop to determine and
+                    // scan current token, for speeding up this process
+                    // current source character checked first
+
+                    // all scan checks should be performed in particular order for
+                    // getting correct result, special attention should be made for
+                    // tokens of different types starting with same character sets
+
+                    // here checks are done for most frequent token types first
+
+                    // identifier starts with following characters, so it's most
+                    // high probability to try scan identifier first
                     if (c == '_' || c >= 'A' && c <= 'Z' || c >= 'a' && c <= 'z' ||
                         c >= '\u0100' || c == '\\')
                     {
-                        // this should be identifier
+                        // try to scan identifier
                         if (ScanIdent(out token))
                             type = TokenType.Identifier;
                     }
+                    // next most frequent token type is comment, comments start with /
+                    // character, so try scan a comment when / encountered
                     else if (c == '/')
                     {
-                        // comments or standalone character
                         if (ScanComment(out token))
                             type = TokenType.Comment;
                     }
+                    // only number could start with digits, try to scan number
                     else if (c >= '0' && c <= '9')
                     {
-                        // this should be some kind number
+                        // it is at least some integer number token
                         type = TokenType.Number;
 
-                        ScanInteger(out token);
-
-                        SourceToken real;
-                        if (ScanReal(out real))
+                        // hexadecimal number literal can't have real part
+                        if (!ScanHexadecimal(out token))
                         {
-                            token.Length += real.Length;
-                            type = TokenType.RealNumber;
+                            // it's not hexadecimal number - it's integer or real
+                            ScanInteger(out token);
+
+                            // try to scan "fractional" part of a number
+                            SourceToken real;
+                            if (ScanReal(out real))
+                            {
+                                token.Length += real.Length;
+                                type = TokenType.RealNumber;
+                            }
                         }
                     }
+                    // from these two characters string literal can start
+                    // try scan string
                     else if (c == '$' || c == '"')
                     {
-                        // string token or standalone $
                         if (ScanString(false, out token))
                             type = TokenType.String;
                     }
+                    // from . character real number can start, or it's a single dot
                     else if (c == '.')
                     {
-                        // real number or dot
                         if (ScanReal(out token))
                             type = TokenType.RealNumber;
                     }
+                    // from ' character only character literal can start
                     else if (c == '\'')
                     {
                         ScanCharacter(out token);
                         type = TokenType.Character;
                     }
+                    // "verbatim" character can start string or @ident
                     else if (c == '@')
                     {
-                        // this could be identifier or @ string
-
                         if (ScanString(true, out token))
                             type = TokenType.String;
                         else
@@ -156,16 +197,20 @@ namespace KParserCS
                             }
                         }
                     }
+                    // only preprocessor directive can start with # character
                     else if (c == '#')
                     {
                         ScanPreprocessor(out token);
                         type = TokenType.Preprocessor;
                     }
 
+                    // if none of previous checks detected any kind of token
+                    // this is symbol or invalid character token, check for it here
+                    // try to match compounds first, and single characters next
                     if (type == TokenType.Unknown)
                     {
                         bool validsymbol =
-                            CheckAny(compounds, true, out token) ||
+                            CheckAny(compounds, (a, b) => a.Equals(b), true, out token) ||
                             CheckAny("().;{},=[]+-*/%&|^!~<>?:", true, out token);
 
                         if (validsymbol)
@@ -182,32 +227,55 @@ namespace KParserCS
             }
         }
 
+
+        // kind of escape sequences to check for
         private enum EscapeCheckContext
         {
-            Identifier,
-            Character
+            Identifier, // check for escape sequences allowed in identifier
+            Character   // check for escape sequences allowed in string and character literals
         }
 
+        // detect escape character sequence
+        //      unicode escape sequence: \u(hexdigit)
+        //          count of digits is not checked here
+        //      hexadecimal escape sequence: \x(hexdigit)
+        //          count of digits is not checked here
+        //      other escape sequences are: \0 \t \b \r \n \f
         private int IsEscape(EscapeCheckContext context)
         {
             SourceToken token;
 
-            if (FromTokenWhile("\\u", hexadecimal, false, null, false, false, out token) == ScanResult.Match)
+            var unicodeescape = FromTokenWhile(
+                "\\u", hexadecimal, false, (a, b) => a.Equals(b), null,
+                false, false, out token
+            );
+
+            if (Match(unicodeescape))
                 return token.Length;
 
             if (context == EscapeCheckContext.Character)
             {
                 int length;
-                if (CheckAny(escapes, false, out length) != -1)
+                if (CheckAny(escapes, (a, b) => a.Equals(b), false, out length) != -1)
                     return length;
 
-                if (FromTokenWhile("\\x", hexadecimal, false, null, false, false, out token) == ScanResult.Match)
+                unicodeescape = FromTokenWhile(
+                    "\\x", hexadecimal, false, (a, b) => a.Equals(b), null,
+                    false, false, out token
+                );
+
+                if (Match(unicodeescape))
                     return token.Length;
             }
 
             return 0;
         }
 
+
+        // try to scan identifier token (does not account for @)
+        //      alpha(alphanum)
+        //      alpha is [A - Z, a - z, _, <unicode ranges>]
+        //      alphanum is [alpha, 0 - 9]
         private bool ScanIdent(out SourceToken token)
         {
             var result = FromSetWhile(
@@ -215,69 +283,102 @@ namespace KParserCS
                 true, out token
             );
 
-            return result == ScanResult.Match;
+            return Match(result);
         }
 
+        // try to scan comment token (both // and /* */ types)
+        //      single line: // <any> <line end>
+        //      multiline:   /* <any> */
         private bool ScanComment(out SourceToken token)
         {
-            var result = FromTokenWhile("//", all, false, null, true, false, out token);
+            return AnyMatch(
+                out token,
 
-            if (result == ScanResult.NoMatch)
-                result = FromTo("/*", "*/", true, null, true, out token);
+                (out SourceToken t) => FromTokenWhile(
+                    "//", all, false, (a, b) => a.Equals(b), null,
+                    true, false, out t
+                ),
 
-            return result != ScanResult.NoMatch;
+                (out SourceToken t) => FromTo(
+                    "/*", "*/", true, (a, b) => a.Equals(b), null,
+                    true, out t
+                )
+            );
         }
 
+        // try to scan string literal
+        //      verbatim - if true scan for @ style string, otherwise scan
+        //      for $ or usual string literals
+        // usual string: "<chars and escapes>"
+        // interp. string: $"<chars and escapes>"
+        // verbatim string: @"<chars, no escapes, line breaks allowed>"
         private bool ScanString(bool verbatim, out SourceToken token)
         {
-            if (verbatim)
-                return FromTo("@\"", "\"", true, null, true, out token) != ScanResult.NoMatch;
-            else
-            {
-                var result = FromTo(
-                    "\"", "\"", false, () => IsEscape(EscapeCheckContext.Character),
-                    true, out token
+            return verbatim ?
+                Match(FromTo("@\"", "\"", true, (a, b) => a.Equals(b), null, true, out token)) :
+                AnyMatch(
+                    out token,
+
+                    (out SourceToken t) => FromTo(
+                        "\"", "\"", false,
+                        (a, b) => a.Equals(b), () => IsEscape(EscapeCheckContext.Character),
+                        true, out t
+                    ),
+
+                    (out SourceToken t) => FromTo(
+                        "$\"", "\"", false,
+                        (a, b) => a.Equals(b), () => IsEscape(EscapeCheckContext.Character),
+                        true, out t
+                    )
                 );
-
-                if (result == ScanResult.NoMatch)
-                    result = FromTo(
-                        "$\"", "\"", false, () => IsEscape(EscapeCheckContext.Character),
-                        true, out token
-                    );
-
-                return result != ScanResult.NoMatch;
-            }
         }
 
+        // try to scan character literal
+        //      character literal: '<characters or escapes>'
+        //      count of included characters is not checked here
         private bool ScanCharacter(out SourceToken token)
         {
             var result = FromTo(
-                "'", "'", false, () => IsEscape(EscapeCheckContext.Character),
+                "'", "'", false,
+                (a, b) => a.Equals(b), () => IsEscape(EscapeCheckContext.Character),
                 true, out token
             );
 
-            return result != ScanResult.NoMatch;
+            return Match(result);
         }
 
+        // try to scan hexadecimal literal
+        //      hexadecimal literal: 0x(hexadecimal)
+        //      hexadecimal is [0 - 9, A - F, a - f]
+        private bool ScanHexadecimal(out SourceToken token)
+        {
+            var result = FromTokenWhile(
+                hexprefixes, hexadecimal, false, (a, b) => a.Equals(b), null, true,
+                false, out token
+            );
+
+            return Match(result);
+        }
+
+        // try to scan decimal integer literal
+        //      decimal(decimal)
+        //      decimal is [0 - 9]
         private bool ScanInteger(out SourceToken token)
         {
-            var result =
-                FromTokenWhile("0x", hexadecimal, false, null, true, false, out token);
-
-            if (result == ScanResult.NoMatch)
-                result = FromTokenWhile("0X", hexadecimal, false, null, true, false, out token);
-
-            if (result == ScanResult.NoMatch)
-                result = FromSetWhile(numeric, numeric, false, null, true, out token);
-
-            return result == ScanResult.Match;
+            var result = FromSetWhile(numeric, numeric, false, null, true, out token);
+            return Match(result);
         }
 
+        // try to scan decimal real (float or double) literal (fractional part of it)
+        //      real fractional: .(decimal)[(eE)(+-)(decimal)]
         private bool ScanReal(out SourceToken token)
         {
-            var result = FromTokenWhile(".", numeric, false, null, true, true, out token);
+            var result = FromTokenWhile(
+                ".", numeric, false, (a, b) => a.Equals(b), null,
+                true, true, out token
+            );
 
-            if (result == ScanResult.Match)
+            if (Match(result))
             {
                 // optional E/e part
                 if (CheckAny("eE", true) != -1)
@@ -290,7 +391,7 @@ namespace KParserCS
 
                     // exponent digits
                     SourceToken exp;
-                    if (FromSetWhile(numeric, numeric, false, null, true, out exp) == ScanResult.Match)
+                    if (ScanInteger(out exp))
                         token.Length += exp.Length;
                 }
 
@@ -299,13 +400,19 @@ namespace KParserCS
                     ++token.Length;
             }
 
-            return result == ScanResult.Match;
+            return Match(result);
         }
 
+        // try to scan preprocessor directive
+        //      preprocessor: # <any> <line end>
         private bool ScanPreprocessor(out SourceToken token)
         {
-            var result = FromTokenWhile("#", all, false, null, true, false, out token);
-            return result == ScanResult.Match;
+            var result = FromTokenWhile(
+                "#", all, false, (a, b) => a.Equals(b), null,
+                true, false, out token
+            );
+
+            return Match(result);
         }
     }
 }
