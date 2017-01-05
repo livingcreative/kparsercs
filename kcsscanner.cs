@@ -163,7 +163,7 @@ namespace KParserCS
                     // try scan string
                     else if (c == '$' || c == '"')
                     {
-                        if (ScanString(false, out token))
+                        if (ScanString(out token))
                             type = TokenType.String;
                     }
                     // from . character real number can start, or it's a single dot
@@ -181,7 +181,7 @@ namespace KParserCS
                     // "verbatim" character can start string or @ident
                     else if (c == '@')
                     {
-                        if (ScanString(true, out token))
+                        if (ScanVerbatimString(out token))
                             type = TokenType.String;
                         else
                         {
@@ -306,31 +306,45 @@ namespace KParserCS
             );
         }
 
-        // try to scan string literal
-        //      verbatim - if true scan for @ style string, otherwise scan
-        //      for $ or usual string literals
-        // usual string: "<chars and escapes>"
-        // interp. string: $"<chars and escapes>"
-        // verbatim string: @"<chars, no escapes, line breaks allowed>"
-        private bool ScanString(bool verbatim, out SourceToken token)
+        // try to scan string literal (usual or interpolated)
+        //      usual string: "<chars and escapes>"
+        //      interp. string: $"<chars and escapes>"
+        private bool ScanString(out SourceToken token)
         {
-            return verbatim ?
-                Match(FromTo("@\"", "\"", true, (a, b) => a.Equals(b), null, true, out token)) :
-                AnyMatch(
-                    out token,
+            return AnyMatch(
+                out token,
 
-                    (out SourceToken t) => FromTo(
-                        "\"", "\"", false,
-                        (a, b) => a.Equals(b), () => IsEscape(EscapeCheckContext.Character),
-                        true, out t
-                    ),
+                (out SourceToken t) => FromTo(
+                    "\"", "\"", false,
+                    (a, b) => a.Equals(b), () => IsEscape(EscapeCheckContext.Character),
+                    true, out t
+                ),
 
-                    (out SourceToken t) => FromTo(
-                        "$\"", "\"", false,
-                        (a, b) => a.Equals(b), () => IsEscape(EscapeCheckContext.Character),
-                        true, out t
-                    )
-                );
+                (out SourceToken t) => FromTo(
+                    "$\"", "\"", false,
+                    (a, b) => a.Equals(b), () => IsEscape(EscapeCheckContext.Character),
+                    true, out t
+                )
+            );
+        }
+
+        // try to scan verbatim string literal
+        //      verbatim string: @"<chars, no escapes, line breaks allowed>"("<chars>")
+        private bool ScanVerbatimString(out SourceToken token)
+        {
+            var result = FromTo("@\"", "\"", true, (a, b) => a.Equals(b), null, true, out token);
+
+            // continue with contigous double quoted strings only if there was full match
+            if (result == ScanResult.Match)
+            {
+                SourceToken tok;
+                while (FromTo("\"", "\"", true, (a, b) => a.Equals(b), null, true, out tok) == ScanResult.Match)
+                {
+                    token.Length += tok.Length;
+                }
+            }
+
+            return Match(result);
         }
 
         // try to scan character literal
