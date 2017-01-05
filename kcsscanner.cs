@@ -64,6 +64,7 @@ namespace KParserCS
         // type of token
         public enum TokenType
         {
+            Unknown,      // invalid character
             Identifier,   // any valid identifier (including possible keywords)
             Number,       // any integer number, decimal or hexadecimal (might be incomplete)
             RealNumber,   // any real (float or double) number (might be incomplete)
@@ -71,8 +72,7 @@ namespace KParserCS
             String,       // any string (including $ and @ strings, might be incomplete or malformed)
             Comment,      // any comment (single- or multi-line)
             Symbol,       // any standalone character or compiund sequence
-            Preprocessor, // preprocessor token (as a whole, not parsed, including possible comments inside)
-            Unknown       // invalid character
+            Preprocessor  // preprocessor token (as a whole, not parsed, including possible comments inside)
         }
 
         // basic C# token class
