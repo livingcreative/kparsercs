@@ -625,13 +625,15 @@ namespace KParserCS
         // this function might return partial match
         // could be used for scanning tokens contained within paired character sequences
         //      C-style comment example: FromTo("/*", "*/", ...)
-        protected ScanResult FromTo(string fromtoken, string totoken, bool nextline, SequenceEqual equals, EscapeFunc escapes, bool increment, out SourceToken token)
+        protected ScanResult FromTo(string fromtoken, string totoken, bool nextline, SequenceEqual equals, EscapeFunc escapes, bool increment, bool allownesting, out SourceToken token)
         {
             token = new SourceToken(_source.Position);
 
             // check "from" sequence match
             if (!Check(fromtoken, equals, true))
                 return ScanResult.NoMatch;
+
+            int nestinglevel = 1;
 
             token.Length += fromtoken.Length;
 
@@ -641,11 +643,25 @@ namespace KParserCS
             SourceToken cs;
             while (GetCharToken(nextline, escapes, false, out cs))
             {
+                if (allownesting && Check(fromtoken, equals, true))
+                {
+                    ++nestinglevel;
+                    token.Length += fromtoken.Length;
+                    continue;
+                }
+
                 if (Check(totoken, equals, true))
                 {
+                    --nestinglevel;
                     token.Length += totoken.Length;
-                    result = ScanResult.Match;
-                    break;
+
+                    if (nestinglevel == 0)
+                    {
+                        result = ScanResult.Match;
+                        break;
+                    }
+
+                    continue;
                 }
 
                 _source.Advance(cs.Length);
