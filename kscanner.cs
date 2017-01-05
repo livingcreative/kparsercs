@@ -309,59 +309,6 @@ namespace KParserCS
             }
         }
 
-        // get current character token
-        //      nextline - indicates if returning of line end sequence is allowed
-        //      escapes  - implementation defined context value for escape sequences
-        //          0 if escape sequences should not be cheked
-        //      token    - resulting token at current source position
-        //      increment - advance current source position in case of match
-        //      returns true if token can be read at current position with given options
-        // if nextline is false and current position is at the end of line function
-        // returns false
-        // if current position is at the end of line and nextline is true whole line
-        // break sequence is returned as a token
-        protected bool GetCharToken(bool nextline, int escapes, bool increment, out SourceToken token)
-        {
-            token = new SourceToken(_source.Position);
-
-            bool result = false;
-            var len = IsBreak;
-
-            // if current position isn't at line end
-            if (len == 0)
-            {
-                // check for possible escape character, if requested
-                if (escapes != 0)
-                    len = IsEscape(escapes);
-
-                // no escape found and end of source reached - return false
-                if (len == 0 && _source.IsEnd)
-                    return false;
-
-                // return single character token, otherwise return token with corresponding
-                // length
-                token.Length = len == 0 ? 1 : len;
-
-                result = true;
-            }
-            else
-            {
-                // if reached here - line break was found, if skip to next line is allowed
-                // increment lines counter and return line break sequence as a token
-                if (nextline)
-                {
-                    token.Length = len;
-                    ++_lines;
-                }
-                result = nextline;
-            }
-
-            if (result && increment)
-                _source.Advance(token.Length);
-
-            return result;
-        }
-
         // checks if current source character matches specified character
         //      c         - character to check match for
         //      increment - advance current source position in case of match
@@ -432,7 +379,7 @@ namespace KParserCS
         //      token     - resulting matched token
         //      returns true if match was found
         // empty or null strings are not allowed!
-        protected bool Check(IEnumerable<string> compounds, bool increment, out SourceToken token)
+        protected bool CheckAny(IEnumerable<string> compounds, bool increment, out SourceToken token)
         {
             token = new SourceToken(_source.Position);
 
@@ -446,6 +393,59 @@ namespace KParserCS
             }
 
             return false;
+        }
+
+        // get current character token
+        //      nextline - indicates if returning of line end sequence is allowed
+        //      escapes  - implementation defined context value for escape sequences
+        //          0 if escape sequences should not be cheked
+        //      token    - resulting token at current source position
+        //      increment - advance current source position in case of match
+        //      returns true if token can be read at current position with given options
+        // if nextline is false and current position is at the end of line function
+        // returns false
+        // if current position is at the end of line and nextline is true whole line
+        // break sequence is returned as a token
+        protected bool GetCharToken(bool nextline, int escapes, bool increment, out SourceToken token)
+        {
+            token = new SourceToken(_source.Position);
+
+            bool result = false;
+            var len = IsBreak;
+
+            // if current position isn't at line end
+            if (len == 0)
+            {
+                // check for possible escape character, if requested
+                if (escapes != 0)
+                    len = IsEscape(escapes);
+
+                // no escape found and end of source reached - return false
+                if (len == 0 && _source.IsEnd)
+                    return false;
+
+                // return single character token, otherwise return token with corresponding
+                // length
+                token.Length = len == 0 ? 1 : len;
+
+                result = true;
+            }
+            else
+            {
+                // if reached here - line break was found, if skip to next line is allowed
+                // increment lines counter and return line break sequence as a token
+                if (nextline)
+                {
+                    token.Length = len;
+                    ++_lines;
+                }
+                result = nextline;
+            }
+
+            if (result && increment)
+                _source.Advance(token.Length);
+
+            return result;
         }
 
         // matches token given by starting character set and allowed character set

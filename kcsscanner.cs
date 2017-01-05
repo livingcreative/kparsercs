@@ -168,7 +168,7 @@ namespace KParserCS
                     if (type == TokenType.Unknown)
                     {
                         bool validsymbol =
-                            Check(compounds, true, out token) ||
+                            CheckAny(compounds, true, out token) ||
                             CheckAny("().;{},=[]+-*/%&|^!~<>?:", true, out token);
 
                         if (validsymbol)
