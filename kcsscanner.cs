@@ -53,10 +53,8 @@ namespace KParserCS
             compounds = new string[]
             {
                 "<<=", ">>=",
-                "||", "&&", "==", "!=", ">=", "<=",
-                "++", "--", "=>", "??",
-                "+=", "-=", "/=", "*=", "%=", "&=", "|=", "^=",
-                "->"
+                 "==", "!=", "=>", "&&", "??", "++", "--", "||", ">=", "<=",
+                "+=", "-=", "/=", "*=", "%=", "&=", "|=", "^=", "->"
             };
         }
 
@@ -64,7 +62,7 @@ namespace KParserCS
         // type of token
         public enum TokenType
         {
-            Unknown,      // invalid character
+            Unknown,      // token haven't been scanned yet
             Identifier,   // any valid identifier (including possible keywords)
             Number,       // any integer number, decimal or hexadecimal (might be incomplete)
             RealNumber,   // any real (float or double) number (might be incomplete)
@@ -72,7 +70,8 @@ namespace KParserCS
             String,       // any string (including $ and @ strings, might be incomplete or malformed)
             Comment,      // any comment (single- or multi-line)
             Symbol,       // any standalone character or compiund sequence
-            Preprocessor  // preprocessor token (as a whole, not parsed, including possible comments inside)
+            Preprocessor, // preprocessor token (as a whole, not parsed, including possible comments inside)
+            Invalid       // invalid token/character
         }
 
         // basic C# token class
@@ -138,6 +137,13 @@ namespace KParserCS
                         if (ScanComment(out token))
                             type = TokenType.Comment;
                     }
+                    // from this character string literal can start
+                    // try scan string
+                    else if (c == '"')
+                    {
+                        if (ScanString(() => IsEscape(EscapeCheckContext.Character), out token))
+                            type = TokenType.String;
+                    }
                     // only number could start with digits, try to scan number
                     else if (c >= '0' && c <= '9')
                     {
@@ -158,13 +164,6 @@ namespace KParserCS
                                 type = TokenType.RealNumber;
                             }
                         }
-                    }
-                    // from this character string literal can start
-                    // try scan string
-                    else if (c == '"')
-                    {
-                        if (ScanString(() => IsEscape(EscapeCheckContext.Character), out token))
-                            type = TokenType.String;
                     }
                     // from this character interpolated string literal can start
                     // try scan interpolated string
@@ -188,7 +187,7 @@ namespace KParserCS
                             )
                         );
 
-                        type = isstring ? TokenType.String : TokenType.Symbol;
+                        type = isstring ? TokenType.String : TokenType.Invalid;
                     }
                     // from . character real number can start, or it's a single dot
                     else if (c == '.')
@@ -213,7 +212,7 @@ namespace KParserCS
 
                             SourceToken ident;
                             if (!ScanIdent(out ident))
-                                type = TokenType.Symbol;
+                                type = TokenType.Invalid;
                             else
                             {
                                 token.Length += ident.Length;
@@ -235,13 +234,16 @@ namespace KParserCS
                     {
                         bool validsymbol =
                             CheckAny(compounds, (a, b) => a.Equals(b), true, out token) ||
-                            CheckAny("().;{},=[]+-*/%&|^!~<>?:", true, out token);
+                            CheckAny(".();,{}=[]:<>+-*/?%&|^!~", true, out token);
 
                         if (validsymbol)
                             type = TokenType.Symbol;
                         else
+                        {
                             // all other stuff (unknown/invalid symbols)
                             GetCharToken(false, null, true, out token);
+                            type = TokenType.Invalid;
+                        }
                     }
 
                     yield return new Token(type, token);
