@@ -295,7 +295,8 @@ namespace KParserCS
             return 0;
         }
 
-
+        // detect interpolation string nested code and treat it as a single
+        // character "escape" sequence
         private int IsInterpolationEscape(bool checkcharescape, bool multiline)
         {
             if (checkcharescape)
