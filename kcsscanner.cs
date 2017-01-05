@@ -159,12 +159,36 @@ namespace KParserCS
                             }
                         }
                     }
-                    // from these two characters string literal can start
+                    // from this character string literal can start
                     // try scan string
-                    else if (c == '$' || c == '"')
+                    else if (c == '"')
                     {
-                        if (ScanString(out token))
+                        if (ScanString(() => IsEscape(EscapeCheckContext.Character), out token))
                             type = TokenType.String;
+                    }
+                    // from this character interpolated string literal can start
+                    // try scan interpolated string
+                    else if (c == '$')
+                    {
+                        // interpolated string could be usual double quoted string or
+                        // @ verbatim string, "eat" $ character and try to scan one of
+                        // string variants
+                        GetCharToken(false, null, true, out token);
+
+                        SourceToken tok;
+                        bool isstring = AnyMatch(
+                            out tok,
+
+                            (out SourceToken t) => ScanString(
+                                () => IsInterpolationEscape(true, false), out t
+                            ),
+
+                            (out SourceToken t) => ScanVerbatimString(
+                                () => IsInterpolationEscape(false, true), out t
+                            )
+                        );
+
+                        type = isstring ? TokenType.String : TokenType.Symbol;
                     }
                     // from . character real number can start, or it's a single dot
                     else if (c == '.')
@@ -181,7 +205,7 @@ namespace KParserCS
                     // "verbatim" character can start string or @ident
                     else if (c == '@')
                     {
-                        if (ScanVerbatimString(out token))
+                        if (ScanVerbatimString(null, out token))
                             type = TokenType.String;
                         else
                         {
@@ -272,6 +296,25 @@ namespace KParserCS
         }
 
 
+        private int IsInterpolationEscape(bool checkcharescape, bool multiline)
+        {
+            if (checkcharescape)
+            {
+                var esc = IsEscape(EscapeCheckContext.Character);
+                if (esc > 0)
+                    return esc;
+            }
+
+            SourceToken interp;
+            var result = FromTo(
+                "{", "}", multiline, (a, b) => a.Equals(b), null,
+                false, true, out interp
+            );
+
+            return Match(result) ? interp.Length : 0;
+        }
+
+
         // try to scan identifier token (does not account for @)
         //      alpha(alphanum)
         //      alpha is [A - Z, a - z, _, <unicode ranges>]
@@ -294,51 +337,45 @@ namespace KParserCS
             return AnyMatch(
                 out token,
 
-                (out SourceToken t) => FromTokenWhile(
+                (out SourceToken t) => Match(FromTokenWhile(
                     "//", all, false, (a, b) => a.Equals(b), null,
                     true, false, out t
-                ),
+                )),
 
-                (out SourceToken t) => FromTo(
+                (out SourceToken t) => Match(FromTo(
                     "/*", "*/", true, (a, b) => a.Equals(b), null,
-                    true, out t
-                )
+                    true, false, out t
+                ))
             );
         }
 
         // try to scan string literal (usual or interpolated)
         //      usual string: "<chars and escapes>"
         //      interp. string: $"<chars and escapes>"
-        private bool ScanString(out SourceToken token)
+        private bool ScanString(EscapeFunc escapes, out SourceToken token)
         {
-            return AnyMatch(
-                out token,
-
-                (out SourceToken t) => FromTo(
-                    "\"", "\"", false,
-                    (a, b) => a.Equals(b), () => IsEscape(EscapeCheckContext.Character),
-                    true, out t
-                ),
-
-                (out SourceToken t) => FromTo(
-                    "$\"", "\"", false,
-                    (a, b) => a.Equals(b), () => IsEscape(EscapeCheckContext.Character),
-                    true, out t
-                )
+            var result = FromTo(
+                "\"", "\"", false, (a, b) => a.Equals(b), escapes,
+                true, false, out token
             );
+
+            return Match(result);
         }
 
         // try to scan verbatim string literal
         //      verbatim string: @"<chars, no escapes, line breaks allowed>"("<chars>")
-        private bool ScanVerbatimString(out SourceToken token)
+        private bool ScanVerbatimString(EscapeFunc escapes, out SourceToken token)
         {
-            var result = FromTo("@\"", "\"", true, (a, b) => a.Equals(b), null, true, out token);
+            var result = FromTo(
+                "@\"", "\"", true, (a, b) => a.Equals(b), escapes,
+                true, false, out token
+            );
 
             // continue with contigous double quoted strings only if there was full match
             if (result == ScanResult.Match)
             {
                 SourceToken tok;
-                while (FromTo("\"", "\"", true, (a, b) => a.Equals(b), null, true, out tok) == ScanResult.Match)
+                while (FromTo("\"", "\"", true, (a, b) => a.Equals(b), escapes, true, false, out tok) == ScanResult.Match)
                 {
                     token.Length += tok.Length;
                 }
@@ -355,7 +392,7 @@ namespace KParserCS
             var result = FromTo(
                 "'", "'", false,
                 (a, b) => a.Equals(b), () => IsEscape(EscapeCheckContext.Character),
-                true, out token
+                true, false, out token
             );
 
             return Match(result);
