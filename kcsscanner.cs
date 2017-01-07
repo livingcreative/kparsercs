@@ -187,6 +187,9 @@ namespace KParserCS
                             )
                         );
 
+                        if (isstring)
+                            token.Length += tok.Length;
+
                         type = isstring ? TokenType.String : TokenType.Invalid;
                     }
                     // from . character real number can start, or it's a single dot
@@ -297,6 +300,22 @@ namespace KParserCS
             return 0;
         }
 
+        // scan for possible comment inside interpolation string braces {}
+        // unlike usual ScanComment this version consider "multiliness" of comment
+        // which depends on inside which string scan is performed (verbatim strings allow
+        // multiline comments)
+        // and does not advance current position, just returns length
+        private int ScanInterpolationComment(bool multiline)
+        {
+            SourceToken token;
+            var result = FromTo(
+                "/*", "*/", multiline, (a, b) => a.Equals(b), null,
+                false, false, out token
+            );
+
+            return Match(result) ? token.Length : 0;
+        }
+
         // detect interpolation string nested code and treat it as a single
         // character "escape" sequence
         private int IsInterpolationEscape(bool checkcharescape, bool multiline)
@@ -310,7 +329,9 @@ namespace KParserCS
 
             SourceToken interp;
             var result = FromTo(
-                "{", "}", multiline, (a, b) => a.Equals(b), null,
+                "{", "}", multiline,
+                (a, b) => a.Equals(b),
+                () => ScanInterpolationComment(multiline),
                 false, true, out interp
             );
 
