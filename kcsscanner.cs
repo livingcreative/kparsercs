@@ -179,18 +179,18 @@ namespace KParserCS
                         // interpolated string could be usual double quoted string or
                         // @ verbatim string, "eat" $ character and try to scan one of
                         // string variants
-                        GetCharToken(false, null, true, out token);
+                        GetCharToken(false, null, out token);
 
                         SourceToken tok;
                         bool isstring = AnyMatch(
                             out tok,
 
                             (out SourceToken t) => ScanString(
-                                () => IsInterpolationEscape(true, false), out t
+                                () => InterpolationInnerScan(true, false), out t
                             ),
 
                             (out SourceToken t) => ScanVerbatimString(
-                                () => IsInterpolationEscape(false, true), out t
+                                () => InterpolationInnerScan(false, true), out t
                             )
                         );
 
@@ -218,7 +218,7 @@ namespace KParserCS
                             type = TokenType.String;
                         else
                         {
-                            GetCharToken(false, null, true, out token);
+                            GetCharToken(false, null, out token);
 
                             SourceToken ident;
                             if (!ScanIdent(out ident))
@@ -243,15 +243,15 @@ namespace KParserCS
                     if (type == TokenType.Unknown)
                     {
                         bool validsymbol =
-                            CheckAny(compounds, (a, b) => a.Equals(b), true, out token) ||
-                            CheckAny(".();,{}=[]:<>+-*/?%&|^!~", true, out token);
+                            CheckAny(compounds, (a, b) => a.Equals(b), out token) ||
+                            CheckAny(".();,{}=[]:<>+-*/?%&|^!~", out token);
 
                         if (validsymbol)
                             type = TokenType.Symbol;
                         else
                         {
                             // all other stuff (unknown/invalid symbols)
-                            GetCharToken(false, null, true, out token);
+                            GetCharToken(false, null, out token);
                             type = TokenType.Invalid;
                         }
                     }
@@ -283,7 +283,7 @@ namespace KParserCS
 
             var unicodeescape = FromTokenWhile(
                 "\\u", hexadecimal, false, (a, b) => a.Equals(b), null,
-                false, false, out token
+                false, out token, false
             );
 
             if (Match(unicodeescape))
@@ -292,12 +292,12 @@ namespace KParserCS
             if (context == EscapeCheckContext.Character)
             {
                 int length;
-                if (CheckAny(escapes, (a, b) => a.Equals(b), false, out length) != -1)
+                if (CheckAny(escapes, (a, b) => a.Equals(b), out length, false) != NO_MATCH)
                     return length;
 
                 unicodeescape = FromTokenWhile(
                     "\\x", hexadecimal, false, (a, b) => a.Equals(b), null,
-                    false, false, out token
+                    false, out token, false
                 );
 
                 if (Match(unicodeescape))
@@ -317,15 +317,15 @@ namespace KParserCS
             SourceToken token;
             var result = FromTo(
                 "/*", "*/", multiline, (a, b) => a.Equals(b), null,
-                false, false, out token
+                false, out token, false
             );
 
             return Match(result) ? token.Length : 0;
         }
 
         // detect interpolation string nested code and treat it as a single
-        // character "escape" sequence
-        private int IsInterpolationEscape(bool checkcharescape, bool multiline)
+        // character inner sequence
+        private int InterpolationInnerScan(bool checkcharescape, bool multiline)
         {
             if (checkcharescape)
             {
@@ -339,7 +339,7 @@ namespace KParserCS
                 "{", "}", multiline,
                 (a, b) => a.Equals(b),
                 () => ScanInterpolationComment(multiline),
-                false, true, out interp
+                true, out interp, false
             );
 
             return Match(result) ? interp.Length : 0;
@@ -354,7 +354,7 @@ namespace KParserCS
         {
             var result = FromSetWhile(
                 alpha, alphanum, false, () => IsEscape(EscapeCheckContext.Identifier),
-                true, out token
+                out token
             );
 
             return Match(result);
@@ -370,12 +370,12 @@ namespace KParserCS
 
                 (out SourceToken t) => Match(FromTokenWhile(
                     "//", all, false, (a, b) => a.Equals(b), null,
-                    true, false, out t
+                    false, out t
                 )),
 
                 (out SourceToken t) => Match(FromTo(
                     "/*", "*/", true, (a, b) => a.Equals(b), null,
-                    true, false, out t
+                    false, out t
                 ))
             );
         }
@@ -387,7 +387,7 @@ namespace KParserCS
         {
             var result = FromTo(
                 "\"", "\"", false, (a, b) => a.Equals(b), inner,
-                true, false, out token
+                false, out token
             );
 
             return Match(result);
@@ -399,14 +399,14 @@ namespace KParserCS
         {
             var result = FromTo(
                 "@\"", "\"", true, (a, b) => a.Equals(b), inner,
-                true, false, out token
+                false, out token
             );
 
             // continue with contigous double quoted strings only if there was full match
             if (result == ScanResult.Match)
             {
                 SourceToken tok;
-                while (FromTo("\"", "\"", true, (a, b) => a.Equals(b), inner, true, false, out tok) == ScanResult.Match)
+                while (FromTo("\"", "\"", true, (a, b) => a.Equals(b), inner, false, out tok) == ScanResult.Match)
                 {
                     token.Length += tok.Length;
                 }
@@ -423,7 +423,7 @@ namespace KParserCS
             var result = FromTo(
                 "'", "'", false,
                 (a, b) => a.Equals(b), () => IsEscape(EscapeCheckContext.Character),
-                true, false, out token
+                false, out token
             );
 
             return Match(result);
@@ -432,7 +432,7 @@ namespace KParserCS
         // try to scan integer number postfix (lLuU)
         private bool ScanIntegerPostfix(out SourceToken token)
         {
-            return CheckAny("lLuU", true, out token);
+            return CheckAny("lLuU", out token);
         }
 
         // try to scan hexadecimal literal
@@ -441,7 +441,7 @@ namespace KParserCS
         private bool ScanHexadecimal(out SourceToken token)
         {
             var result = Match(FromTokenWhile(
-                hexprefixes, hexadecimal, false, (a, b) => a.Equals(b), null, true,
+                hexprefixes, hexadecimal, false, (a, b) => a.Equals(b), null,
                 false, out token
             ));
 
@@ -457,7 +457,7 @@ namespace KParserCS
         //      decimal is [0 - 9]
         private bool ScanDecimal(out SourceToken token)
         {
-            var result = FromSetWhile(numeric, numeric, false, null, true, out token);
+            var result = FromSetWhile(numeric, numeric, false, null, out token);
             return Match(result);
         }
 
@@ -467,18 +467,18 @@ namespace KParserCS
         {
             var result = FromTokenWhile(
                 ".", numeric, false, (a, b) => a.Equals(b), null,
-                true, true, out token
+                true, out token
             );
 
             if (Match(result))
             {
                 // optional E/e part
-                if (CheckAny("eE", true) != -1)
+                if (CheckAny("eE") != NO_MATCH)
                 {
                     ++token.Length;
 
                     // optional +/- after exponent sign
-                    if (CheckAny("+-", true) != -1)
+                    if (CheckAny("+-") != NO_MATCH)
                         ++token.Length;
 
                     // exponent digits
@@ -488,7 +488,7 @@ namespace KParserCS
                 }
 
                 // optional postfix
-                if (CheckAny("fdFD", true) != -1)
+                if (CheckAny("fdFD") != NO_MATCH)
                     ++token.Length;
             }
 
@@ -501,7 +501,7 @@ namespace KParserCS
         {
             var result = FromTokenWhile(
                 "#", all, false, (a, b) => a.Equals(b), null,
-                true, false, out token
+                false, out token
             );
 
             return Match(result);
