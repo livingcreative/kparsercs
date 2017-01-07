@@ -154,14 +154,21 @@ namespace KParserCS
                         if (!ScanHexadecimal(out token))
                         {
                             // it's not hexadecimal number - it's integer or real
-                            ScanInteger(out token);
+                            ScanDecimal(out token);
 
-                            // try to scan "fractional" part of a number
-                            SourceToken real;
-                            if (ScanReal(out real))
+                            // try scan integer postfix, if there's postfix it's integer
+                            // number
+                            SourceToken tok;
+                            if (ScanIntegerPostfix(out tok))
+                                token.Length += tok.Length;
+                            else
                             {
-                                token.Length += real.Length;
-                                type = TokenType.RealNumber;
+                                // try to scan "fractional" part of a number
+                                if (ScanReal(out tok))
+                                {
+                                    token.Length += tok.Length;
+                                    type = TokenType.RealNumber;
+                                }
                             }
                         }
                     }
@@ -376,10 +383,10 @@ namespace KParserCS
         // try to scan string literal (usual or interpolated)
         //      usual string: "<chars and escapes>"
         //      interp. string: $"<chars and escapes>"
-        private bool ScanString(EscapeFunc escapes, out SourceToken token)
+        private bool ScanString(InnerScan inner, out SourceToken token)
         {
             var result = FromTo(
-                "\"", "\"", false, (a, b) => a.Equals(b), escapes,
+                "\"", "\"", false, (a, b) => a.Equals(b), inner,
                 true, false, out token
             );
 
@@ -388,10 +395,10 @@ namespace KParserCS
 
         // try to scan verbatim string literal
         //      verbatim string: @"<chars, no escapes, line breaks allowed>"("<chars>")
-        private bool ScanVerbatimString(EscapeFunc escapes, out SourceToken token)
+        private bool ScanVerbatimString(InnerScan inner, out SourceToken token)
         {
             var result = FromTo(
-                "@\"", "\"", true, (a, b) => a.Equals(b), escapes,
+                "@\"", "\"", true, (a, b) => a.Equals(b), inner,
                 true, false, out token
             );
 
@@ -399,7 +406,7 @@ namespace KParserCS
             if (result == ScanResult.Match)
             {
                 SourceToken tok;
-                while (FromTo("\"", "\"", true, (a, b) => a.Equals(b), escapes, true, false, out tok) == ScanResult.Match)
+                while (FromTo("\"", "\"", true, (a, b) => a.Equals(b), inner, true, false, out tok) == ScanResult.Match)
                 {
                     token.Length += tok.Length;
                 }
@@ -422,23 +429,33 @@ namespace KParserCS
             return Match(result);
         }
 
+        // try to scan integer number postfix (lLuU)
+        private bool ScanIntegerPostfix(out SourceToken token)
+        {
+            return CheckAny("lLuU", true, out token);
+        }
+
         // try to scan hexadecimal literal
         //      hexadecimal literal: 0x(hexadecimal)
         //      hexadecimal is [0 - 9, A - F, a - f]
         private bool ScanHexadecimal(out SourceToken token)
         {
-            var result = FromTokenWhile(
+            var result = Match(FromTokenWhile(
                 hexprefixes, hexadecimal, false, (a, b) => a.Equals(b), null, true,
                 false, out token
-            );
+            ));
 
-            return Match(result);
+            SourceToken pf;
+            if (result && ScanIntegerPostfix(out pf))
+                token.Length += pf.Length;
+
+            return result;
         }
 
         // try to scan decimal integer literal
         //      decimal(decimal)
         //      decimal is [0 - 9]
-        private bool ScanInteger(out SourceToken token)
+        private bool ScanDecimal(out SourceToken token)
         {
             var result = FromSetWhile(numeric, numeric, false, null, true, out token);
             return Match(result);
@@ -466,7 +483,7 @@ namespace KParserCS
 
                     // exponent digits
                     SourceToken exp;
-                    if (ScanInteger(out exp))
+                    if (ScanDecimal(out exp))
                         token.Length += exp.Length;
                 }
 
