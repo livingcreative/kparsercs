@@ -526,6 +526,30 @@ namespace KParserCS
             return result;
         }
 
+        // get current character token and matches it agains provided set
+        // if character doesn't match given set and it's not any inner sequence
+        // function returns false
+        //      set       - character set to check current char belongs to
+        //      nextline  - indicates if returning of line end sequence is allowed
+        //      inner     - optional function to check for inner sequences which should be
+        //          returned as a whole (e.g. compound characters)
+        //          should return length of found inner sequence or 0 if none found
+        //      token     - resulting token at current source position
+        //      increment - advance current source position in case of match
+        //      returns true if token can be read at current position with given options
+        //      and matched given set or matched inner sequence
+        protected bool CheckCharToken(CharSet set, bool nextline, InnerScan inner, bool increment, out SourceToken token)
+        {
+            var result =
+                GetCharToken(nextline, inner, false, out token) &&
+                (token.Length > 1 || set.Contains(_source.CharCurrent));
+
+            if (result && increment)
+                _source.Advance(token.Length);
+
+            return result;
+        }
+
         // matches token given by starting character set and allowed character set
         //      from      - char set which indicates allowed starting token characters
         //      whileset  - char set of characters which allowed to be included in token
@@ -548,19 +572,13 @@ namespace KParserCS
             token = new SourceToken();
 
             // check match for first allowed character
-            SourceToken cs;
-            if (GetCharToken(multiline, inner, false, out cs) &&
-                (cs.Length > 1 || from.Contains(_source.CharCurrent)))
-                _source.Advance(cs.Length);
-            else
+            if (!CheckCharToken(from, multiline, inner, true, out token))
                 return ScanResult.NoMatch;
 
             // continue while characters match "whileset"
-            token = cs;
-            while (GetCharToken(multiline, inner, false, out cs) &&
-                   (cs.Length > 1 || whileset.Contains(_source.CharCurrent)))
+            SourceToken cs;
+            while (CheckCharToken(whileset, multiline, inner, true, out cs))
             {
-                _source.Advance(cs.Length);
                 token.Length += cs.Length;
             }
 
@@ -602,10 +620,8 @@ namespace KParserCS
 
             // continue while characters match "whileset"
             SourceToken cs;
-            while (GetCharToken(multiline, inner, false, out cs) &&
-                   (cs.Length > 1 || whileset.Contains(_source.CharCurrent)))
+            while (CheckCharToken(whileset, multiline, inner, true, out cs))
             {
-                _source.Advance(cs.Length);
                 token.Length += cs.Length;
             }
 
