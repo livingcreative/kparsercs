@@ -347,7 +347,7 @@ namespace KParserCS
         //      c         - character to check match for
         //      increment - advance current source position in case of match
         //      returns true if current source character matches given character
-        protected bool Check(char c, bool increment)
+        protected bool Check(char c, bool increment = true)
         {
             var result = !_source.IsEnd && _source.CharCurrent == c;
 
@@ -365,7 +365,7 @@ namespace KParserCS
         //      increment - advance current source position in case of match
         //      returns true if current source character sequence matches given sequence
         // empty or null string is not allowed!
-        protected bool Check(string s, SequenceEqual equals, bool increment)
+        protected bool Check(string s, SequenceEqual equals, bool increment = true)
         {
             var result =
                 HasCharacters(s.Length) &&
@@ -385,7 +385,7 @@ namespace KParserCS
         //          must not be null
         //      increment  - advance current source position in case of match
         //      returns character index of matched character, NO_MATCH (-1) otherwise
-        protected int CheckAny(IEnumerable<char> characters, bool increment)
+        protected int CheckAny(IEnumerable<char> characters, bool increment = true)
         {
             int result = 0;
 
@@ -406,7 +406,7 @@ namespace KParserCS
         //      increment  - advance current source position in case of match
         //      token      - resulting matched token
         //      returns true if one of characters matched
-        protected bool CheckAny(IEnumerable<char> characters, bool increment, out SourceToken token)
+        protected bool CheckAny(IEnumerable<char> characters, out SourceToken token, bool increment = true)
         {
             token = new SourceToken(_source.Position);
 
@@ -430,7 +430,7 @@ namespace KParserCS
         //      length    - length of the matched string
         //      returns index of matched string, NO_MATCH (-1) otherwise
         // empty or null strings are not allowed!
-        protected int CheckAny(IEnumerable<string> compounds, SequenceEqual equals, bool increment, out int length)
+        protected int CheckAny(IEnumerable<string> compounds, SequenceEqual equals, out int length, bool increment = true)
         {
             int result = 0;
             length = 0;
@@ -459,12 +459,12 @@ namespace KParserCS
         //      token     - resulting matched token
         //      returns true if match was found
         // empty or null strings are not allowed!
-        protected bool CheckAny(IEnumerable<string> compounds, SequenceEqual equals, bool increment, out SourceToken token)
+        protected bool CheckAny(IEnumerable<string> compounds, SequenceEqual equals, out SourceToken token, bool increment = true)
         {
             token = new SourceToken(_source.Position);
             int length = 0;
 
-            var result = CheckAny(compounds, equals, increment, out length) != NO_MATCH;
+            var result = CheckAny(compounds, equals, out length, increment) != NO_MATCH;
 
             if (result)
                 token.Length = length;
@@ -484,7 +484,7 @@ namespace KParserCS
         // returns false
         // if current position is at the end of line and nextline is true whole line
         // break sequence is returned as a token
-        protected bool GetCharToken(bool nextline, InnerScan inner, bool increment, out SourceToken token)
+        protected bool GetCharToken(bool nextline, InnerScan inner, out SourceToken token, bool increment = true)
         {
             token = new SourceToken(_source.Position);
 
@@ -538,10 +538,10 @@ namespace KParserCS
         //      increment - advance current source position in case of match
         //      returns true if token can be read at current position with given options
         //      and matched given set or matched inner sequence
-        protected bool CheckCharToken(CharSet set, bool nextline, InnerScan inner, bool increment, out SourceToken token)
+        protected bool CheckCharToken(CharSet set, bool nextline, InnerScan inner, out SourceToken token, bool increment = true)
         {
             var result =
-                GetCharToken(nextline, inner, false, out token) &&
+                GetCharToken(nextline, inner, out token, false) &&
                 (token.Length > 1 || set.Contains(_source.CharCurrent));
 
             if (result && increment)
@@ -567,17 +567,17 @@ namespace KParserCS
         // could be used for scanning simple tokens like identifiers or numbers
         //      number example:     FromSetWhile([0 - 9], [0 - 9], ...)
         //      identifier example: FromSetWhile([A - Z, a - z, _], [A - Z, a - z, _, 0 - 9], ...)
-        protected ScanResult FromSetWhile(CharSet from, CharSet whileset, bool multiline, InnerScan inner, bool increment, out SourceToken token)
+        protected ScanResult FromSetWhile(CharSet from, CharSet whileset, bool multiline, InnerScan inner, out SourceToken token, bool increment = true)
         {
             token = new SourceToken();
 
             // check match for first allowed character
-            if (!CheckCharToken(from, multiline, inner, true, out token))
+            if (!CheckCharToken(from, multiline, inner, out token))
                 return ScanResult.NoMatch;
 
             // continue while characters match "whileset"
             SourceToken cs;
-            while (CheckCharToken(whileset, multiline, inner, true, out cs))
+            while (CheckCharToken(whileset, multiline, inner, out cs))
             {
                 token.Length += cs.Length;
             }
@@ -608,19 +608,19 @@ namespace KParserCS
         // with "whileset" character set
         // could be used for scanning simple tokens which start from specific sequence
         //      hex number example: FromTokenWhile("0x", [0 - 9, A - F, a - f], ...)
-        protected ScanResult FromTokenWhile(string from, CharSet whileset, bool multiline, SequenceEqual equals, InnerScan inner, bool increment, bool notemptywhile, out SourceToken token)
+        protected ScanResult FromTokenWhile(string from, CharSet whileset, bool multiline, SequenceEqual equals, InnerScan inner, bool notemptywhile, out SourceToken token, bool increment = true)
         {
             token = new SourceToken(_source.Position);
 
             // check "from" sequence match
-            if (!Check(from, equals, true))
+            if (!Check(from, equals))
                 return ScanResult.NoMatch;
 
             token.Length += from.Length;
 
             // continue while characters match "whileset"
             SourceToken cs;
-            while (CheckCharToken(whileset, multiline, inner, true, out cs))
+            while (CheckCharToken(whileset, multiline, inner, out cs))
             {
                 token.Length += cs.Length;
             }
@@ -641,15 +641,15 @@ namespace KParserCS
 
         // matches token given by possible starting character sequences and allowed character set
         // all parameters are same as for previous function, except from is a list of possible tokens
-        protected ScanResult FromTokenWhile(IEnumerable<string> from, CharSet whileset, bool multiline, SequenceEqual equals, InnerScan inner, bool increment, bool notemptywhile, out SourceToken token)
+        protected ScanResult FromTokenWhile(IEnumerable<string> from, CharSet whileset, bool multiline, SequenceEqual equals, InnerScan inner, bool notemptywhile, out SourceToken token, bool increment = true)
         {
             var result = ScanResult.NoMatch;
 
             foreach (var tok in from)
             {
                 result = FromTokenWhile(
-                    tok, whileset, multiline, equals, inner, increment,
-                    notemptywhile, out token
+                    tok, whileset, multiline, equals, inner,
+                    notemptywhile, out token, increment
                 );
 
                 if (result != ScanResult.NoMatch)
@@ -679,12 +679,12 @@ namespace KParserCS
         // this function might return partial match
         // could be used for scanning tokens contained within paired character sequences
         //      C-style comment example: FromTo("/*", "*/", ...)
-        protected ScanResult FromTo(string fromtoken, string totoken, bool multiline, SequenceEqual equals, InnerScan inner, bool increment, bool allownesting, out SourceToken token)
+        protected ScanResult FromTo(string fromtoken, string totoken, bool multiline, SequenceEqual equals, InnerScan inner, bool allownesting, out SourceToken token, bool increment = true)
         {
             token = new SourceToken(_source.Position);
 
             // check "from" sequence match
-            if (!Check(fromtoken, equals, true))
+            if (!Check(fromtoken, equals))
                 return ScanResult.NoMatch;
 
             int nestinglevel = 1;
@@ -695,16 +695,16 @@ namespace KParserCS
 
             // continue with characters up until match of "totoken"
             SourceToken cs;
-            while (GetCharToken(multiline, inner, false, out cs))
+            while (GetCharToken(multiline, inner, out cs, false))
             {
-                if (allownesting && Check(fromtoken, equals, true))
+                if (allownesting && Check(fromtoken, equals))
                 {
                     ++nestinglevel;
                     token.Length += fromtoken.Length;
                     continue;
                 }
 
-                if (Check(totoken, equals, true))
+                if (Check(totoken, equals))
                 {
                     --nestinglevel;
                     token.Length += totoken.Length;
