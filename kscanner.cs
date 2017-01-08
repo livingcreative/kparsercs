@@ -1,22 +1,26 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 
 namespace KParserCS
 {
-    // Token
+    // SourceToken
     //      represents token as subrange inside source text
     public struct SourceToken
     {
         // construct token with given position and length
         public SourceToken(int start, int length = 0)
         {
+            Debug.Assert(start >= 0, "SourceToken.Start must be >= 0");
+            Debug.Assert(length >= 0, "SourceToken.Length must be >= 0");
+
             Start = start;
             Length = length;
         }
 
         // token position inside source (index of first character)
-        public int Start { get; set; }
+        public int Start { get; private set; }
 
         // token length (count of characters contained inside this token)
         public int Length { get; set; }
@@ -76,6 +80,8 @@ namespace KParserCS
         // construct source with provided string contents
         public ScannerStringSource(string source)
         {
+            Debug.Assert(source != null, "Source string must not be null");
+
             _source = source;
             _pos = 0;
         }
@@ -176,6 +182,8 @@ namespace KParserCS
         // construct scanner with specified source
         protected Scanner(IScannerSource source)
         {
+            Debug.Assert(source != null, "Scanner source must not be null");
+
             _source = source;
             _lines = 0;
         }
@@ -362,6 +370,8 @@ namespace KParserCS
         // empty or null string is not allowed!
         protected bool Check(string s, bool increment = true)
         {
+            Debug.Assert(!string.IsNullOrEmpty(s), "string must not be null or empty");
+
             var result =
                 HasCharacters(s.Length) &&
                 s.Equals(_source.TokenToString(new SourceToken(_source.Position, s.Length)));
@@ -382,6 +392,8 @@ namespace KParserCS
         //      returns character index of matched character, NO_MATCH (-1) otherwise
         protected int CheckAny(IEnumerable<char> characters, bool increment = true)
         {
+            Debug.Assert(characters != null, "character source must not be null");
+
             int result = 0;
 
             foreach (var c in characters)
@@ -403,6 +415,8 @@ namespace KParserCS
         //      returns true if one of characters matched
         protected bool CheckAny(IEnumerable<char> characters, out SourceToken token, bool increment = true)
         {
+            Debug.Assert(characters != null, "character source must not be null");
+
             token = new SourceToken(_source.Position);
 
             var result = CheckAny(characters, increment) != NO_MATCH;
@@ -425,6 +439,8 @@ namespace KParserCS
         // empty or null strings are not allowed!
         protected int CheckAny(IEnumerable<string> compounds, out int length, bool increment = true)
         {
+            Debug.Assert(compounds != null, "compounds source must not be null");
+
             int result = 0;
             length = 0;
 
@@ -452,6 +468,8 @@ namespace KParserCS
         // empty or null strings are not allowed!
         protected bool CheckAny(IEnumerable<string> compounds, out SourceToken token, bool increment = true)
         {
+            Debug.Assert(compounds != null, "compounds source must not be null");
+
             token = new SourceToken(_source.Position);
             int length = 0;
 
@@ -531,6 +549,8 @@ namespace KParserCS
         //      and matched given set or matched inner sequence
         protected bool CheckCharToken(CharSet set, bool nextline, InnerScan inner, out SourceToken token, bool increment = true)
         {
+            Debug.Assert(set != null, "set must not be null");
+
             var result =
                 GetCharToken(nextline, inner, out token, false) &&
                 (token.Length > 1 || set.Contains(_source.CharCurrent));
@@ -560,6 +580,9 @@ namespace KParserCS
         //      identifier example: FromSetWhile([A - Z, a - z, _], [A - Z, a - z, _, 0 - 9], ...)
         protected ScanResult FromSetWhile(CharSet from, CharSet whileset, bool multiline, InnerScan inner, out SourceToken token, bool increment = true)
         {
+            Debug.Assert(from != null, "from set must not be null");
+            Debug.Assert(whileset != null, "whileset set must not be null");
+
             token = new SourceToken();
 
             // check match for first allowed character
@@ -599,6 +622,9 @@ namespace KParserCS
         //      hex number example: FromTokenWhile("0x", [0 - 9, A - F, a - f], ...)
         protected ScanResult FromTokenWhile(string from, CharSet whileset, bool multiline, InnerScan inner, bool notemptywhile, out SourceToken token, bool increment = true)
         {
+            Debug.Assert(!string.IsNullOrEmpty(from), "from string must not be null or empty");
+            Debug.Assert(whileset != null, "whileset set must not be null");
+
             token = new SourceToken(_source.Position);
 
             // check "from" sequence match
@@ -632,6 +658,9 @@ namespace KParserCS
         // all parameters are same as for previous function, except from is a list of possible tokens
         protected ScanResult FromTokenWhile(IEnumerable<string> from, CharSet whileset, bool multiline, InnerScan inner, bool notemptywhile, out SourceToken token, bool increment = true)
         {
+            Debug.Assert(from != null, "from source must not be null");
+            Debug.Assert(whileset != null, "whileset set must not be null");
+
             var result = ScanResult.NoMatch;
 
             foreach (var tok in from)
@@ -668,6 +697,9 @@ namespace KParserCS
         //      C-style comment example: FromTo("/*", "*/", ...)
         protected ScanResult FromTo(string fromtoken, string totoken, bool multiline, InnerScan inner, bool allownesting, out SourceToken token, bool increment = true)
         {
+            Debug.Assert(!string.IsNullOrEmpty(fromtoken), "fromtoken string must not be null or empty");
+            Debug.Assert(!string.IsNullOrEmpty(totoken), "totoken string must not be null or empty");
+
             token = new SourceToken(_source.Position);
 
             // check "from" sequence match
