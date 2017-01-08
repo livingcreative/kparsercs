@@ -38,6 +38,8 @@ namespace KParserCS
         /// (count of characters contained inside this token)
         /// </summary>
         public int Length { get; set; }
+
+        public override string ToString() => $"{Start}:{Length}";
     }
 
 
