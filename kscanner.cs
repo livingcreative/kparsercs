@@ -5,11 +5,20 @@ using System.Linq;
 
 namespace KParserCS
 {
-    // SourceToken
-    //      represents token as subrange inside source text
+    /// <summary>
+    /// Represents a token as subrange inside source text
+    /// </summary>
     public struct SourceToken
     {
-        // construct token with given position and length
+        /// <summary>
+        /// Initializes new token instance with given <c>start</c> and <c>length</c>
+        /// </summary>
+        /// <param name="start">Position in source text where token starts</param>
+        /// <param name="length">Length of the token</param>
+        /// <remarks>
+        /// Both <paramref name="start"/> and <paramref name="length"/> must be
+        /// equal or greater than 0
+        /// </remarks>
         public SourceToken(int start, int length = 0)
         {
             Debug.Assert(start >= 0, "SourceToken.Start must be >= 0");
@@ -19,65 +28,113 @@ namespace KParserCS
             Length = length;
         }
 
-        // token position inside source (index of first character)
+        /// <summary>
+        /// Gets token position inside source (index of first character)
+        /// </summary>
         public int Start { get; private set; }
 
-        // token length (count of characters contained inside this token)
+        /// <summary>
+        /// Gets or sets token length
+        /// (count of characters contained inside this token)
+        /// </summary>
         public int Length { get; set; }
     }
 
 
-    // IScannerSource
-    //      scanner source interface abstracts source for scanner
-    //      scanner treats source text as a "flat" bunch of characters
-    //      including line breaks and other possible special characters
+    /// <summary>
+    /// Interface for scanner source
+    /// </summary>
+    /// <remarks>
+    /// Scanner treats source text as a "flat" bunch of characters
+    /// including line breaks and other possible special characters
+    /// </remarks>
     public interface IScannerSource
     {
-        // current position inside source text
+        /// <summary>
+        /// Gets current scanning position inside source text
+        /// </summary>
         int Position { get; }
-        // length of the whole source text
+
+        /// <summary>
+        /// Gets length of the whole source text (total number of characters)
+        /// </summary>
         int Length { get; }
 
-        // end of source indicator
-        //      true when Position reached end of source (Position == Length)
-        //      false otherwise
+        /// <summary>
+        /// Indicates if source end has been reached
+        /// </summary>
+        /// <remarks>
+        /// Has <c>true</c> value when <c>Position</c> reached end of source <c>(Position == Length)</c>
+        /// and <c>false</c> otherwise
+        /// </remarks>
         bool IsEnd { get; }
 
-        // returns source character at current Position
-        //      reading at invalid Position is not allowed
-        //      Scanner won't read at invalid position
+        /// <summary>
+        /// Gets source character at current Position
+        /// </summary>
+        /// <remarks>
+        /// Reading at invalid Position is not allowed.
+        /// By default, scanner won't read at invalid position
+        /// </remarks>
         char CharCurrent { get; }
-        // returns source character at specific offset form current position
-        //      reading at invalid position is not allowed
-        //      Scanner won't read at invalid position
+
+        /// <summary>
+        /// Returns source character at specific offset form current position
+        /// </summary>
+        /// <param name="offset">Offset relative to current position</param>
+        /// <returns>character at given offset</returns>
+        /// <remarks>
+        /// Reading at invalid position is not allowed.
+        /// By default, scanner won't read at invalid position
+        /// </remarks>
         char CharAt(int offset);
 
-        // moves current Position by specified advance
-        //      both negative and positive advances are allowed
-        //      moving outside valid source text range is not allowed
-        //      Scanner won't advance to invalid position except position
-        //      where IsEnd will return true
+        /// <summary>
+        /// Moves current position by specified advance
+        /// </summary>
+        /// <param name="advance">Advance to move position by</param>
+        /// <remarks>
+        /// Both negative and positive advances are allowed.
+        /// Moving outside valid source text range is not allowed, except end position.
+        /// Scanner won't advance to invalid position except position where
+        /// IsEnd will be <c>true</c>
+        /// </remarks>
         void Advance(int advance = 1);
 
-        // converts source token to individual string
+        /// <summary>
+        /// Converts source token to individual string
+        /// </summary>
+        /// <param name="token">Token to convert to string</param>
+        /// <returns>String which contains characters of given token</returns>
+        /// <remarks>
+        /// Token must have valid position and length for given source
+        /// </remarks>
         string TokenToString(SourceToken token);
     }
 
 
-    // ScannerStringSource
-    //      default IScannerSource source implementation
-    //      which stores source inside a string
+    /// <summary>
+    /// Default <c>IScannerSource</c> implementation which stores source inside a string
+    /// </summary>
     public class ScannerStringSource : IScannerSource
     {
         private string _source; // string with source text
         private int    _pos;    // current position
 
-        // constructs empty source
+        /// <summary>
+        /// Initializes new instance with empty source string
+        /// </summary>
         public ScannerStringSource() :
             this(string.Empty)
         { }
 
-        // construct source with provided string contents
+        /// <summary>
+        /// Initializes new instance with given string
+        /// </summary>
+        /// <param name="source">String with source text</param>
+        /// <remarks>
+        /// <paramref name="source"/> must not be <c>null</c>
+        /// </remarks>
         public ScannerStringSource(string source)
         {
             Debug.Assert(source != null, "Source string must not be null");
@@ -104,12 +161,14 @@ namespace KParserCS
     }
 
 
-    // Scanner
-    //      basic class which provides basic functions for
-    //      splitting source on individual tokens
+    /// <summary>
+    /// Provides basic functions for splitting source on individual tokens
+    /// </summary>
     public class Scanner
     {
-        // return type for basic scanning functions
+        /// <summary>
+        /// Return type for basic scanning functions
+        /// </summary>
         protected enum ScanResult
         {
             // scanning not matched expected token, current position remains as before
@@ -131,43 +190,68 @@ namespace KParserCS
             MatchTrimmedEOF
         }
 
-        // helper class that represents set of character ranges
-        //      its functionality is very basic and does not handle any incosistencies or
-        //      edge cases
-        //      typical CharSet supposed to consist of several character ranges
-        //      e.g. 'A' - 'Z' and 'a' - 'z' represents all valid source alpha characters
-        //      this is more compact and fast way to store character set ranges instead of
-        //      using HashSet<char>
+        /// <summary>
+        /// Helper class that represents set of character ranges
+        /// </summary>
+        /// <remarks>
+        /// Its functionality is very basic and does not handle any incosistencies or
+        /// edge cases.
+        /// Typical CharSet supposed to consist of several character ranges.
+        /// E.g. 'A' - 'Z' and 'a' - 'z' represents all valid source alpha characters.
+        /// This is more compact and fast way to store character set ranges instead of
+        /// using HashSet<char>.
+        /// </remarks>
         protected class CharSet
         {
             private List<Tuple<char, char>> _set;
 
-            // construct empty CharSet
+            /// <summary>
+            /// Initializes new instance with empty set
+            /// </summary>
             public CharSet()
             {
                 _set = new List<Tuple<char, char>>();
             }
 
-            // construct CharSet as a copy of another CharSet
+            /// <summary>
+            /// Initializes new instance as a copy of existing CharSet object
+            /// </summary>
+            /// <param name="source">Source object which will be copied into new one</param>
             public CharSet(CharSet source)
             {
                 _set = new List<Tuple<char, char>>(source._set);
             }
 
-            // add a single character to the set
+            /// <summary>
+            /// Adds a single character to the set
+            /// </summary>
+            /// <param name="ch">Character to add</param>
+            /// <remarks>No checks will be performed on add</remarks>
             public void Add(char ch)
             {
                 _set.Add(new Tuple<char, char>(ch, ch));
             }
 
-            // add range of characters to the set
-            //      "a" value must be <= "b" value
+            /// <summary>
+            /// Adds range of characters to the set
+            /// </summary>
+            /// <param name="a">First character of a range (inclusive)</param>
+            /// <param name="b">Last character of a range (inclusive)</param>
+            /// <remarks>
+            /// <paramref name="a"/> value must be less than or equal to
+            /// <paramref name="b"/> value.
+            /// No checks will be performed on add
+            /// </remarks>
             public void Add(char a, char b)
             {
                 _set.Add(new Tuple<char, char>(a, b));
             }
 
-            // checks whether set contains specific character "ch"
+            /// <summary>
+            /// Checks whether set contains specific character
+            /// </summary>
+            /// <param name="ch">Character to check</param>
+            /// <returns><c>true</c>if set contains given character</returns>
             public bool Contains(char ch)
             {
                 return _set.Any(v => ch >= v.Item1 && ch <= v.Item2);
@@ -179,7 +263,13 @@ namespace KParserCS
         private int            _lines;  // source lines counter
 
 
-        // construct scanner with specified source
+        /// <summary>
+        /// Initializes new instance of a scanner object with given source
+        /// </summary>
+        /// <param name="source">Source for scanning</param>
+        /// <remarks>
+        /// <paramref name="source"/> must not be null
+        /// </remarks>
         protected Scanner(IScannerSource source)
         {
             Debug.Assert(source != null, "Scanner source must not be null");
@@ -188,29 +278,41 @@ namespace KParserCS
             _lines = 0;
         }
 
-        // inner scan delegate type
-        //      returns count of characters matched for any inner sequence
-        //      at current position
-        // can be used to read escape sequences and some inner elements of containing
-        // sequence
+        /// <summary>
+        /// Inner scan delegate type
+        /// </summary>
+        /// <returns>
+        /// Returns count of characters matched for any inner sequence
+        /// at current position
+        /// </returns>
+        /// <remarks>
+        /// Can be used to read escape sequences and some inner elements of containing
+        /// sequence
+        /// </remarks>
         protected delegate int InnerScan();
 
-        // scan callback function, represents a delegate for AnyMatch utility function
-        //      token - resulting token if scan matched
-        //      returns match result
+        /// <summary>
+        /// Scan callback delegate for AnyMatch utility function
+        /// </summary>
+        /// <param name="token">Resulting token on successful scan</param>
+        /// <returns>Returns match result</returns>
         protected delegate ScanResult ScanCallback(out SourceToken token);
 
         // following members might be overriden by specific scanner implementation
         // Scanner class provides only basic implementation
 
-        // checks if current source character is a space character
-        //      returns true if current source character is a space character
-        //      default implementation treats all characters in the range from 0 to 32
-        //      as space characters except line break characters (\r \n)
-        //      end of source isn't treated as space character also
-        // specific scanner implementation can override this property to treat other
-        // characters as space characters
-        // space characters are always single characters, they can not be sequences
+        /// <summary>
+        /// Checks if current source character is a space character
+        /// </summary>
+        /// <remarks>
+        /// Returns <c>true</c> if current source character is a space character.
+        /// Default implementation treats all characters in the range from 0 to 32
+        /// as space characters except line break characters (\r \n).
+        /// End of source isn't treated as space character also.
+        /// Specific scanner implementation can override this property to treat other
+        /// characters as space characters.
+        /// Space characters are always single characters, they can not be sequences.
+        /// </remarks>
         protected virtual bool IsSpace
         {
             get
@@ -222,14 +324,18 @@ namespace KParserCS
             }
         }
 
-        // checks if current source character is a line break character or compound
-        //      returns non zero value if current source character is a line break
-        //      character or compound, value indicates line break sequence length
-        //      default implementation treats \r \n single characters and \r\n \n\r
-        //      compounds as line breaks
-        //      end of source isn't treated as line break
-        // specific scanner implementation can override this property to treat other
-        // characters or compounds as line breaks
+        /// <summary>
+        /// Checks if current source character is a line break character or sequence
+        /// </summary>
+        /// <remarks>
+        /// Returns non zero value if current source character is a line break
+        /// character or sequence, value indicates line break sequence length.
+        /// Default implementation treats \r \n single characters and \r\n \n\r
+        /// sequences as line breaks.
+        /// End of source isn't treated as line break.
+        /// Specific scanner implementation can override this property to treat other
+        /// characters or sequences as line breaks.
+        /// </remarks>
         protected virtual int IsBreak
         {
             get
@@ -263,13 +369,29 @@ namespace KParserCS
         // following members provide basic scanning functionality
         // and supposed to be used as basic blocks for building specific scanner
 
-        // helper function to check if scan matched
+        /// <summary>
+        /// Helper function to check if scan matched
+        /// </summary>
+        /// <param name="result"><c>ScanResult</c> value to check</param>
+        /// <returns>Returns <c>true</c> for eny result, but <c>ScanResult.NoMatch</c></returns>
         protected static bool Match(ScanResult result) => result != ScanResult.NoMatch;
-        // helper function to check if scan not matched
+
+        /// <summary>
+        /// Helper function to check if scan not matched
+        /// </summary>
+        /// <param name="result"><c>ScanResult</c> value to check</param>
+        /// <returns>Returns <c>false</c> for eny result, but <c>ScanResult.Match</c></returns>
         protected static bool NotMatch(ScanResult result) => result == ScanResult.NoMatch;
-        // helper function to chain matching alternatives
-        //      does sequential calls to scans callbacks and returns first matched token
-        //      from a callback
+
+        /// <summary>
+        /// Helper function to chain matching alternatives
+        /// </summary>
+        /// <param name="token">Resulting matched token in case of any match</param>
+        /// <param name="scans">Set of scanning callback functions</param>
+        /// <returns>
+        /// Returns match result of first matched callback or <c>ScanResult.NoMatch</c>
+        /// in case of no match
+        /// </returns>
         protected static ScanResult AnyMatch(out SourceToken token, params ScanCallback[] scans)
         {
             foreach (var scan in scans)
@@ -286,31 +408,53 @@ namespace KParserCS
             return ScanResult.NoMatch;
         }
 
-        // returns token contents as string
-        //      simply delegates to IScannerSource implementation
+        /// <summary>
+        /// Converts source token to individual string
+        /// </summary>
+        /// <param name="token">Token to convert to string</param>
+        /// <returns>String which contains characters of given token</returns>
+        /// <remarks>
+        /// Token must have valid position and length for given source
+        /// </remarks>
         protected string TokenToString(SourceToken token) =>
             _source.TokenToString(token);
 
-        // returns character at current source position
-        //      might be useful for quick check before calling any specific scan
-        //      functions
-        // do not try to read CharCurrent when end of source is reached
+        /// <summary>
+        /// Gets character at current source position
+        /// </summary>
+        /// <remarks>
+        /// Might be useful for quick check before calling any specific scan functions.
+        /// Do not try to read CharCurrent when end of source is reached.
+        /// </remarks>
         protected char CharCurrent => _source.CharCurrent;
 
-        // returns parsed lines count
-        //      every encountered line break character/sequence increments this number
+        /// <summary>
+        /// Gets processed lines count during scan
+        /// </summary>
+        /// <remarks>
+        /// Every encountered line break character/sequence increments this number
+        /// </remarks>
         protected int LineCount => _lines;
 
-        // checks whether there are at least count characters remaining before source end
+        /// <summary>
+        /// Checks whether there are at least <c>count</c> characters remaining before source end
+        /// </summary>
+        /// <param name="count">For how many characters to check</param>
+        /// <returns>Returns <c>true</c> if <c>count</c> characters can be read before end of source</returns>
         protected bool HasCharacters(int count) =>
             count <= (_source.Length - _source.Position);
 
-        // skips to next character token
-        //      nextline - indicates if end of line characters can be skipped
-        //      returns true if there's next non space character available for reading
-        // if nextline is not true and current character is line break character
-        // function returns false
-        // skipping through line break characters/sequences increments line counter
+        /// <summary>
+        /// Skips to next non space or line break character token
+        /// </summary>
+        /// <param name="nextline">Indicates that EOL sequences should be skipped</param>
+        /// <returns>
+        /// Returns <c>true</c> if current position now is at valid non space or
+        /// EOL character, <c>false</c> if EOL or end of source reached
+        /// </returns>
+        /// <remarks>
+        /// Skipping through line break characters/sequences increments line counter
+        /// </remarks>
         protected bool NextCharToken(bool nextline = true)
         {
             while (true)
@@ -348,10 +492,12 @@ namespace KParserCS
             }
         }
 
-        // checks if current source character matches specified character
-        //      c         - character to check match for
-        //      increment - advance current source position in case of match
-        //      returns true if current source character matches given character
+        /// <summary>
+        /// Checks if current source character matches specified character
+        /// </summary>
+        /// <param name="c">The character to check match for</param>
+        /// <param name="increment">Indicates if current source position needs to be advanced in case of match</param>
+        /// <returns>Returns <c>true</c> in case of match</returns>
         protected bool Check(char c, bool increment = true)
         {
             var result = !_source.IsEnd && _source.CharCurrent == c;
@@ -362,12 +508,15 @@ namespace KParserCS
             return result;
         }
 
-        // checks if current source sequence matches specified character sequence
-        //      s         - character sequence to check match for
-        //          must not be null or empty
-        //      increment - advance current source position in case of match
-        //      returns true if current source character sequence matches given sequence
-        // empty or null string is not allowed!
+        /// <summary>
+        /// Checks if current source sequence matches specified character sequence
+        /// </summary>
+        /// <param name="s">Sequence of characters to check match for</param>
+        /// <param name="increment">Indicates if current source position needs to be advanced in case of match</param>
+        /// <returns>Returns <c>true</c> if current source character sequence matches given sequence</returns>
+        /// <remarks>
+        /// Empty or null string is not allowed as an input
+        /// </remarks>
         protected bool Check(string s, bool increment = true)
         {
             Debug.Assert(!string.IsNullOrEmpty(s), "string must not be null or empty");
@@ -385,11 +534,15 @@ namespace KParserCS
         // special value for no matched CheckAny result
         protected const int NO_MATCH = -1;
 
-        // checks if current source character matches one of provided characters
-        //      characters - characters to check match for
-        //          must not be null
-        //      increment  - advance current source position in case of match
-        //      returns character index of matched character, NO_MATCH (-1) otherwise
+        /// <summary>
+        /// Checks if current source character matches one of provided characters
+        /// </summary>
+        /// <param name="characters">Characters to check match for</param>
+        /// <param name="increment">Indicates if current source position needs to be advanced in case of match</param>
+        /// <returns>Returns index of matched character in case of match or <c>NO_MATCH</c> otherwise</returns>
+        /// <remarks>
+        /// <paramref name="characters"/> must not be <c>null</c>
+        /// </remarks>
         protected int CheckAny(IEnumerable<char> characters, bool increment = true)
         {
             Debug.Assert(characters != null, "character source must not be null");
@@ -406,13 +559,16 @@ namespace KParserCS
             return NO_MATCH;
         }
 
-        // checks if current source character matches one of provided characters
-        // and returns it as a token in case of match
-        //      characters - characters to check match for
-        //          must not be null
-        //      token      - resulting matched token
-        //      increment  - advance current source position in case of match
-        //      returns true if one of characters matched
+        /// <summary>
+        /// Checks if current source character matches one of provided characters
+        /// </summary>
+        /// <param name="characters">Characters to check match for</param>
+        /// <param name="token">Resulting token in case of match</param>
+        /// <param name="increment">Indicates if current source position needs to be advanced in case of match</param>
+        /// <returns>Returns <c>true</c> in case of match</returns>
+        /// <remarks>
+        /// <paramref name="characters"/> must not be <c>null</c>
+        /// </remarks>
         protected bool CheckAny(IEnumerable<char> characters, out SourceToken token, bool increment = true)
         {
             Debug.Assert(characters != null, "character source must not be null");
@@ -425,16 +581,16 @@ namespace KParserCS
             return result;
         }
 
-        // checks if current source sequence matches one of given character sequences
-        //      compounds - sequences to check
-        //          shoul be ordered from longest to shortest if
-        //          check is performed for compound characters
-        //          must not be null
-        //          must not contain null or emty strings
-        //      length    - length of the matched string
-        //      increment - advance current source position in case of match
-        //      returns index of matched string, NO_MATCH (-1) otherwise
-        // empty or null strings are not allowed!
+        /// <summary>
+        /// Checks if current source sequence matches one of given character sequences
+        /// </summary>
+        /// <param name="compounds">Sequences to check match for</param>
+        /// <param name="length">Length of matched sequence will be stored here</param>
+        /// <param name="increment">Indicates if current source position needs to be advanced in case of match</param>
+        /// <returns>Returns index of matched sequence in case of match or <c>NO_MATCH</c> otherwise</returns>
+        /// <remarks>
+        /// <paramref name="compounds"/> must not be <c>null</c>, empty or null strings are not allowed
+        /// </remarks>
         protected int CheckAny(IEnumerable<string> compounds, out int length, bool increment = true)
         {
             Debug.Assert(compounds != null, "compounds source must not be null");
@@ -454,16 +610,16 @@ namespace KParserCS
             return NO_MATCH;
         }
 
-        // checks if current source sequence matches one of given character sequences
-        //      compounds - sequences to check
-        //          shoul be ordered from longest to shortest if
-        //          check is performed for compound characters
-        //          must not be null
-        //          must not contain null or emty strings
-        //      token     - resulting matched token
-        //      increment - advance current source position in case of match
-        //      returns true if match was found
-        // empty or null strings are not allowed!
+        /// <summary>
+        /// Checks if current source sequence matches one of given character sequences
+        /// </summary>
+        /// <param name="compounds">Sequences to check match for</param>
+        /// <param name="token">Resulting token in case of match</param>
+        /// <param name="increment">Indicates if current source position needs to be advanced in case of match</param>
+        /// <returns>Returns <c>true</c> in case of match</returns>
+        /// <remarks>
+        /// <paramref name="compounds"/> must not be <c>null</c>, empty or null strings are not allowed
+        /// </remarks>
         protected bool CheckAny(IEnumerable<string> compounds, out SourceToken token, bool increment = true)
         {
             Debug.Assert(compounds != null, "compounds source must not be null");
@@ -478,18 +634,14 @@ namespace KParserCS
             return result;
         }
 
-        // get current character token
-        //      nextline  - indicates if returning of line end sequence is allowed
-        //      inner     - optional function to check for inner sequences which should be
-        //          returned as a whole (e.g. compound characters)
-        //          should return length of found inner sequence or 0 if none found
-        //      token     - resulting token at current source position
-        //      increment - advance current source position in case of match
-        //      returns true if token can be read at current position with given options
-        // if nextline is false and current position is at the end of line function
-        // returns false
-        // if current position is at the end of line and nextline is true whole line
-        // break sequence is returned as a token
+        /// <summary>
+        /// Gets current character token
+        /// </summary>
+        /// <param name="nextline">Indicates if returning of line end sequence is allowed</param>
+        /// <param name="inner">Optional function to check for inner sequences which will be treated as compound character token</param>
+        /// <param name="token">Resulting token in case of match</param>
+        /// <param name="increment">Indicates if current source position needs to be advanced in case of match</param>
+        /// <returns>Returns <c>true</c> in case of match</returns>
         protected bool GetCharToken(bool nextline, InnerScan inner, out SourceToken token, bool increment = true)
         {
 
@@ -535,18 +687,20 @@ namespace KParserCS
             return result;
         }
 
-        // get current character token and matches it agains provided set
-        // if character doesn't match given set and it's not any inner sequence
-        // function returns false
-        //      set       - character set to check current char belongs to
-        //      nextline  - indicates if returning of line end sequence is allowed
-        //      inner     - optional function to check for inner sequences which should be
-        //          returned as a whole (e.g. compound characters)
-        //          should return length of found inner sequence or 0 if none found
-        //      token     - resulting token at current source position
-        //      increment - advance current source position in case of match
-        //      returns true if token can be read at current position with given options
-        //      and matched given set or matched inner sequence
+        /// <summary>
+        /// Gets current character token and matches it agains provided set
+        /// </summary>
+        /// <param name="set">Character set to check current char belongs to</param>
+        /// <param name="nextline">Indicates if returning of line end sequence is allowed</param>
+        /// <param name="inner">Optional function to check for inner sequences which will be treated as compound character token</param>
+        /// <param name="token">Resulting token in case of match</param>
+        /// <param name="increment">Indicates if current source position needs to be advanced in case of match</param>
+        /// <returns>Returns <c>true</c> in case of match</returns>
+        /// <remarks>
+        /// <paramref name="set"/> must not be <c>null</c>.
+        /// If character doesn't match given set and it's not any inner sequence
+        /// function returns <c>false</c>
+        /// </remarks>
         protected bool CheckCharToken(CharSet set, bool nextline, InnerScan inner, out SourceToken token, bool increment = true)
         {
             Debug.Assert(set != null, "set must not be null");
@@ -561,23 +715,20 @@ namespace KParserCS
             return result;
         }
 
-        // matches token given by starting character set and allowed character set
-        //      from      - char set which indicates allowed starting token characters
-        //      whileset  - char set of characters which allowed to be included in token
-        //      multiline - indicates whether token is allowed to span for multiple lines
-        //      inner     - optional function to check for inner sequences which should be
-        //          returned as a whole (e.g. compound characters)
-        //          should return length of found inner sequence or 0 if none found
-        //      token     - resulting token
-        //      increment - indicates if current source position should be incremented by
-        //          the length of found token
-        //      returns scan result
-        // this function does not return partial matches
-        // it scans for tokens which start from specific character set and continues with
-        // "whileset" character set
-        // could be used for scanning simple tokens like identifiers or numbers
-        //      number example:     FromSetWhile([0 - 9], [0 - 9], ...)
-        //      identifier example: FromSetWhile([A - Z, a - z, _], [A - Z, a - z, _, 0 - 9], ...)
+        /// <summary>
+        /// Matches token given by starting character set and allowed character set
+        /// </summary>
+        /// <param name="from">CharSet which holds allowed starting token characters</param>
+        /// <param name="whileset">CharSet which holds allowed characters to be included in token after starting one</param>
+        /// <param name="multiline">Indicates whether token is allowed to span for multiple lines</param>
+        /// <param name="inner">Optional function to check for inner sequences which will be treated as compound character token</param>
+        /// <param name="token">Resulting token in case of match</param>
+        /// <param name="increment">Indicates if current source position needs to be advanced in case of match</param>
+        /// <returns>Returns match result</returns>
+        /// <remarks>
+        /// <paramref name="from"/> and <paramref name="whileset"/> must not be <c>null</c>.
+        /// This function does not return partial matches (it's not possible) in this case.
+        /// </remarks>
         protected ScanResult FromSetWhile(CharSet from, CharSet whileset, bool multiline, InnerScan inner, out SourceToken token, bool increment = true)
         {
             Debug.Assert(from != null, "from set must not be null");
@@ -601,23 +752,22 @@ namespace KParserCS
             return ScanResult.Match;
         }
 
-        // matches token given by starting character sequence and allowed character set
-        //      from      - character sequence with which token starts
-        //          empty or null string is not allowed!
-        //      whileset  - char set of characters which allowed to be included in token
-        //      multiline - indicates whether token is allowed to span for multiple lines
-        //      inner     - optional function to check for inner sequences which should be
-        //          returned as a whole (e.g. compound characters)
-        //          should return length of found inner sequence or 0 if none found
-        //      token     - resulting token
-        //      increment - indicates if current source position should be incremented by
-        //          the length of found token
-        //      returns scan result
-        // this function does not return partial matches
-        // it scans for tokens which start from specific character sequence and continues
-        // with "whileset" character set
-        // could be used for scanning simple tokens which start from specific sequence
-        //      hex number example: FromTokenWhile("0x", [0 - 9, A - F, a - f], ...)
+        /// <summary>
+        /// Matches token given by starting character sequence and allowed character set
+        /// </summary>
+        /// <param name="from">Character sequence with which token starts</param>
+        /// <param name="whileset">CharSet which holds allowed characters to be included in token after starting one</param>
+        /// <param name="multiline">Indicates whether token is allowed to span for multiple lines</param>
+        /// <param name="inner">Optional function to check for inner sequences which will be treated as compound character token</param>
+        /// <param name="notemptywhile">Indicates that match should be returned only if there is at leas one match from while set</param>
+        /// <param name="token">Resulting token in case of match</param>
+        /// <param name="increment">Indicates if current source position needs to be advanced in case of match</param>
+        /// <returns>Returns match result</returns>
+        /// <remarks>
+        /// <paramref name="from"/> must not be <c>null</c> or empty string.
+        /// <paramref name="whileset"/> must not be <c>null</c>.
+        /// This function does not return partial matches (it's not possible) in this case.
+        /// </remarks>
         protected ScanResult FromTokenWhile(string from, CharSet whileset, bool multiline, InnerScan inner, bool notemptywhile, out SourceToken token, bool increment = true)
         {
             Debug.Assert(!string.IsNullOrEmpty(from), "from string must not be null or empty");
@@ -652,8 +802,22 @@ namespace KParserCS
             return ScanResult.Match;
         }
 
-        // matches token given by possible starting character sequences and allowed character set
-        // all parameters are same as for previous function, except from is a list of possible tokens
+        /// <summary>
+        /// Matches token given by possible starting character sequences and allowed character set
+        /// </summary>
+        /// <param name="from">Character sequences with which token starts</param>
+        /// <param name="whileset">CharSet which holds allowed characters to be included in token after starting one</param>
+        /// <param name="multiline">Indicates whether token is allowed to span for multiple lines</param>
+        /// <param name="inner">Optional function to check for inner sequences which will be treated as compound character token</param>
+        /// <param name="notemptywhile">Indicates that match should be returned only if there is at leas one match from while set</param>
+        /// <param name="token">Resulting token in case of match</param>
+        /// <param name="increment">Indicates if current source position needs to be advanced in case of match</param>
+        /// <returns>Returns match result</returns>
+        /// <remarks>
+        /// <paramref name="from"/> must not be <c>null</c> and must not contain <c>null</c> or empty string.
+        /// <paramref name="whileset"/> must not be <c>null</c>.
+        /// This function does not return partial matches (it's not possible) in this case.
+        /// </remarks>
         protected ScanResult FromTokenWhile(IEnumerable<string> from, CharSet whileset, bool multiline, InnerScan inner, bool notemptywhile, out SourceToken token, bool increment = true)
         {
             Debug.Assert(from != null, "from source must not be null");
@@ -677,22 +841,22 @@ namespace KParserCS
             return result;
         }
 
-        // matches token given by starting and ending character sequences
-        //      fromtoken - character sequence with which token starts
-        //          empty or null string is not allowed!
-        //      totoken   - character sequence with which token ends
-        //          empty or null string is not allowed!
-        //      multiline - indicates whether token is allowed to span for multiple lines
-        //      inner     - optional function to check for inner sequences which should be
-        //          returned as a whole (e.g. compound characters)
-        //          should return length of found inner sequence or 0 if none found
-        //      token     - resulting token
-        //      increment - indicates if current source position should be incremented by
-        //          the length of found token
-        //      returns scan result
-        // this function might return partial match
-        // could be used for scanning tokens contained within paired character sequences
-        //      C-style comment example: FromTo("/*", "*/", ...)
+        /// <summary>
+        /// Matches token given by starting and ending character sequences
+        /// </summary>
+        /// <param name="fromtoken">Character sequence with which token starts</param>
+        /// <param name="totoken">Character sequence with which token ends</param>
+        /// <param name="multiline">Indicates whether token is allowed to span for multiple lines</param>
+        /// <param name="inner">Optional function to check for inner sequences which will be treated as compound character token</param>
+        /// <param name="allownesting">Indicates if nesting of starting/ending sequences is allowed</param>
+        /// <param name="token">Resulting token in case of match</param>
+        /// <param name="increment">Indicates if current source position needs to be advanced in case of match</param>
+        /// <returns>Returns match result</returns>
+        /// <remarks>
+        /// <paramref name="fromtoken"/> must not be <c>null</c> or empty string.
+        /// <paramref name="totoken"/> must not be <c>null</c> or empty string.
+        /// This function might return partial match.
+        /// </remarks>
         protected ScanResult FromTo(string fromtoken, string totoken, bool multiline, InnerScan inner, bool allownesting, out SourceToken token, bool increment = true)
         {
             Debug.Assert(!string.IsNullOrEmpty(fromtoken), "fromtoken string must not be null or empty");
