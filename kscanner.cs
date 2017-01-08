@@ -417,12 +417,10 @@ namespace KParserCS
         {
             Debug.Assert(characters != null, "character source must not be null");
 
-            token = new SourceToken(_source.Position);
-
+            var pos = _source.Position;
             var result = CheckAny(characters, increment) != NO_MATCH;
 
-            if (result)
-                token.Length = 1;
+            token = new SourceToken(pos, result ? 1 : 0);
 
             return result;
         }
@@ -470,13 +468,12 @@ namespace KParserCS
         {
             Debug.Assert(compounds != null, "compounds source must not be null");
 
-            token = new SourceToken(_source.Position);
-            int length = 0;
+            var length = 0;
+            var pos = _source.Position;
 
             var result = CheckAny(compounds, out length, increment) != NO_MATCH;
 
-            if (result)
-                token.Length = length;
+            token = new SourceToken(pos, length);
 
             return result;
         }
@@ -495,9 +492,8 @@ namespace KParserCS
         // break sequence is returned as a token
         protected bool GetCharToken(bool nextline, InnerScan inner, out SourceToken token, bool increment = true)
         {
-            token = new SourceToken(_source.Position);
 
-            bool result = false;
+            var result = false;
             var len = IsBreak;
 
             // if current position isn't at line end
@@ -509,23 +505,27 @@ namespace KParserCS
 
                 // no inner sequence found and end of source reached - return false
                 if (len == 0 && _source.IsEnd)
+                {
+                    // NOTE: just to c# compiler stop complaining
+                    token = new SourceToken();
                     return false;
+                }
 
                 // return single character token, otherwise return token with corresponding
                 // length
-                token.Length = len == 0 ? 1 : len;
+                token = new SourceToken(_source.Position, len == 0 ? 1 : len);
 
                 result = true;
             }
             else
             {
+                token = new SourceToken(_source.Position, nextline ? len : 0);
+
                 // if reached here - line break was found, if skip to next line is allowed
                 // increment lines counter and return line break sequence as a token
                 if (nextline)
-                {
-                    token.Length = len;
                     ++_lines;
-                }
+
                 result = nextline;
             }
 
@@ -582,8 +582,6 @@ namespace KParserCS
         {
             Debug.Assert(from != null, "from set must not be null");
             Debug.Assert(whileset != null, "whileset set must not be null");
-
-            token = new SourceToken();
 
             // check match for first allowed character
             if (!CheckCharToken(from, multiline, inner, out token))
