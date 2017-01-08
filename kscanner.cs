@@ -197,9 +197,8 @@ namespace KParserCS
 
         // scan callback function, represents a delegate for AnyMatch utility function
         //      token - resulting token if scan matched
-        //      returns true if there was a match (either full or partial) during this
-        //      callback
-        protected delegate bool ScanCallback(out SourceToken token);
+        //      returns match result
+        protected delegate ScanResult ScanCallback(out SourceToken token);
 
         // following members might be overriden by specific scanner implementation
         // Scanner class provides only basic implementation
@@ -271,19 +270,20 @@ namespace KParserCS
         // helper function to chain matching alternatives
         //      does sequential calls to scans callbacks and returns first matched token
         //      from a callback
-        protected static bool AnyMatch(out SourceToken token, params ScanCallback[] scans)
+        protected static ScanResult AnyMatch(out SourceToken token, params ScanCallback[] scans)
         {
             foreach (var scan in scans)
             {
-                if (scan(out token))
-                    return true;
+                var match = scan(out token);
+                if (Match(match))
+                    return match;
             }
 
             // NOTE: actually assignment of emty token is not needed here, but
             //       c# insists, change to ref also will force caller to initialize
             //       passed token
             token = new SourceToken();
-            return false;
+            return ScanResult.NoMatch;
         }
 
         // returns token contents as string

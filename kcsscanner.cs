@@ -141,7 +141,8 @@ namespace KParserCS
                     // try scan string
                     else if (c == '"')
                     {
-                        if (ScanString(() => IsEscape(EscapeCheckContext.Character), out token))
+                        var isstr = ScanString(() => IsEscape(EscapeCheckContext.Character), out token);
+                        if (Match(isstr))
                             type = TokenType.String;
                     }
                     // only number could start with digits, try to scan number
@@ -182,7 +183,7 @@ namespace KParserCS
                         GetCharToken(false, null, out token);
 
                         SourceToken tok;
-                        bool isstring = AnyMatch(
+                        bool isstring = Match(AnyMatch(
                             out tok,
 
                             (out SourceToken t) => ScanString(
@@ -192,7 +193,7 @@ namespace KParserCS
                             (out SourceToken t) => ScanVerbatimString(
                                 () => InterpolationInnerScan(false, true), out t
                             )
-                        );
+                        ));
 
                         if (isstring)
                             token.Length += tok.Length;
@@ -214,7 +215,7 @@ namespace KParserCS
                     // "verbatim" character can start string or @ident
                     else if (c == '@')
                     {
-                        if (ScanVerbatimString(null, out token))
+                        if (Match(ScanVerbatimString(null, out token)))
                             type = TokenType.String;
                         else
                         {
@@ -360,33 +361,24 @@ namespace KParserCS
         //      multiline:   /* <any> */
         private bool ScanComment(out SourceToken token)
         {
-            return AnyMatch(
+            return Match(AnyMatch(
                 out token,
-
-                (out SourceToken t) => Match(FromTokenWhile(
-                    "//", all, false, null,
-                    false, out t
-                )),
-
-                (out SourceToken t) => Match(FromTo(
-                    "/*", "*/", true, null,
-                    false, out t
-                ))
-            );
+                (out SourceToken t) => FromTokenWhile("//", all, false, null, false, out t),
+                (out SourceToken t) => FromTo("/*", "*/", true, null, false, out t)
+            ));
         }
 
         // try to scan string literal (usual or interpolated)
         //      usual string: "<chars and escapes>"
         //      interp. string: $"<chars and escapes>"
-        private bool ScanString(InnerScan inner, out SourceToken token)
+        private ScanResult ScanString(InnerScan inner, out SourceToken token)
         {
-            var result = FromTo("\"", "\"", false, inner, false, out token);
-            return Match(result);
+            return FromTo("\"", "\"", false, inner, false, out token);
         }
 
         // try to scan verbatim string literal
         //      verbatim string: @"<chars, no escapes, line breaks allowed>"("<chars>")
-        private bool ScanVerbatimString(InnerScan inner, out SourceToken token)
+        private ScanResult ScanVerbatimString(InnerScan inner, out SourceToken token)
         {
             var result = FromTo("@\"", "\"", true, inner, false, out token);
 
@@ -394,13 +386,15 @@ namespace KParserCS
             if (result == ScanResult.Match)
             {
                 SourceToken tok;
-                while (FromTo("\"", "\"", true, inner, false, out tok) == ScanResult.Match)
+                ScanResult next;
+                while (Match(next = FromTo("\"", "\"", true, inner, false, out tok)))
                 {
+                    result = next;
                     token.Length += tok.Length;
                 }
             }
 
-            return Match(result);
+            return result;
         }
 
         // try to scan character literal
