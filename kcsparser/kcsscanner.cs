@@ -1,6 +1,7 @@
-﻿using System.Collections.Generic;
+﻿using KParserCS;
+using System.Collections.Generic;
 
-namespace KParserCS
+namespace KCSParser
 {
     // basic C# tokenizer example
     public class CSScanner : Scanner
@@ -71,6 +72,7 @@ namespace KParserCS
             Comment,      // any comment (single- or multi-line)
             Symbol,       // any standalone character or compiund sequence
             Preprocessor, // preprocessor token (as a whole, not parsed, including possible comments inside)
+            Spacer,       // sequence of spaces/line breaks
             Invalid       // invalid token/character
         }
 
@@ -93,175 +95,181 @@ namespace KParserCS
 
 
         // get source tokens
-        public IEnumerable<Token> Tokens
+        public IEnumerable<Token> DumpTokens(bool includespacers)
         {
-            get
+            // while end of source isn't reached move to next possible token and
+            // scan it
+            SourceToken token;
+            while (SkipToToken(out token))
             {
-                // while end of source isn't reached move to next possible token and
-                // scan it
-                while (NextCharToken())
-                {
-                    // at this point current source position is at some non spacing
-                    // character
+                // at this point current source position is at some non spacing
+                // character
 
-                    // actually token is always being assigned here, but c# compiler
-                    // doesn't think so, so empty one is constructed here
-                    SourceToken token = new SourceToken();
+                // return skipped spaces/line breaks as a token if requested
+                if (includespacers && token.Length > 0)
+                    yield return new Token(TokenType.Spacer, token);
 
-                    var type = TokenType.Unknown;
-                    var c = CharCurrent;
-
-                    // here all possible scans could be run in a loop to determine and
-                    // scan current token, for speeding up this process
-                    // current source character checked first
-
-                    // all scan checks should be performed in particular order for
-                    // getting correct result, special attention should be made for
-                    // tokens of different types starting with same character sets
-
-                    // here checks are done for most frequent token types first
-
-                    // identifier starts with following characters, so it's most
-                    // high probability to try scan identifier first
-                    if (c == '_' || c >= 'A' && c <= 'Z' || c >= 'a' && c <= 'z' ||
-                        c >= '\u0100' || c == '\\')
-                    {
-                        // try to scan identifier
-                        if (ScanIdent(out token))
-                            type = TokenType.Identifier;
-                    }
-                    // next most frequent token type is comment, comments start with /
-                    // character, so try scan a comment when / encountered
-                    else if (c == '/')
-                    {
-                        if (ScanComment(out token))
-                            type = TokenType.Comment;
-                    }
-                    // from this character string literal can start
-                    // try scan string
-                    else if (c == '"')
-                    {
-                        var isstr = ScanString(() => IsEscape(EscapeCheckContext.Character), out token);
-                        if (Match(isstr))
-                            type = TokenType.String;
-                    }
-                    // only number could start with digits, try to scan number
-                    else if (c >= '0' && c <= '9')
-                    {
-                        // it is at least some integer number token
-                        type = TokenType.Number;
-
-                        // hexadecimal number literal can't have real part
-                        if (!ScanHexadecimal(out token))
-                        {
-                            // it's not hexadecimal number - it's integer or real
-                            ScanDecimal(out token);
-
-                            // try scan integer postfix, if there's postfix it's integer
-                            // number
-                            SourceToken tok;
-                            if (ScanIntegerPostfix(out tok))
-                                token.Length += tok.Length;
-                            else
-                            {
-                                // try to scan "fractional" part of a number
-                                if (ScanReal(out tok))
-                                {
-                                    token.Length += tok.Length;
-                                    type = TokenType.RealNumber;
-                                }
-                            }
-                        }
-                    }
-                    // from this character interpolated string literal can start
-                    // try scan interpolated string
-                    else if (c == '$')
-                    {
-                        // interpolated string could be usual double quoted string or
-                        // @ verbatim string, "eat" $ character and try to scan one of
-                        // string variants
-                        GetCharToken(false, null, out token);
-
-                        SourceToken tok;
-                        bool isstring = Match(AnyMatch(
-                            out tok,
-
-                            (out SourceToken t) => ScanString(
-                                () => InterpolationInnerScan(true, false), out t
-                            ),
-
-                            (out SourceToken t) => ScanVerbatimString(
-                                () => InterpolationInnerScan(false, true), out t
-                            )
-                        ));
-
-                        if (isstring)
-                            token.Length += tok.Length;
-
-                        type = isstring ? TokenType.String : TokenType.Invalid;
-                    }
-                    // from . character real number can start, or it's a single dot
-                    else if (c == '.')
-                    {
-                        if (ScanReal(out token))
-                            type = TokenType.RealNumber;
-                    }
-                    // from ' character only character literal can start
-                    else if (c == '\'')
-                    {
-                        ScanCharacter(out token);
-                        type = TokenType.Character;
-                    }
-                    // "verbatim" character can start string or @ident
-                    else if (c == '@')
-                    {
-                        if (Match(ScanVerbatimString(null, out token)))
-                            type = TokenType.String;
-                        else
-                        {
-                            GetCharToken(false, null, out token);
-
-                            SourceToken ident;
-                            if (!ScanIdent(out ident))
-                                type = TokenType.Invalid;
-                            else
-                            {
-                                token.Length += ident.Length;
-                                type = TokenType.Identifier;
-                            }
-                        }
-                    }
-                    // only preprocessor directive can start with # character
-                    else if (c == '#')
-                    {
-                        ScanPreprocessor(out token);
-                        type = TokenType.Preprocessor;
-                    }
-
-                    // if none of previous checks detected any kind of token
-                    // this is symbol or invalid character token, check for it here
-                    // try to match compounds first, and single characters next
-                    if (type == TokenType.Unknown)
-                    {
-                        bool validsymbol =
-                            CheckAny(compounds, out token) ||
-                            CheckAny(".();,{}=[]:<>+-*/?%&|^!~", out token);
-
-                        if (validsymbol)
-                            type = TokenType.Symbol;
-                        else
-                        {
-                            // all other stuff (unknown/invalid symbols)
-                            GetCharToken(false, null, out token);
-                            type = TokenType.Invalid;
-                        }
-                    }
-
-                    yield return new Token(type, token);
-                }
-
-                yield break;
+                yield return ReadToken();
             }
+
+            yield break;
+        }
+
+
+        // read current token
+        private Token ReadToken()
+        {
+            SourceToken token = new SourceToken();
+            var type = TokenType.Unknown;
+            var c = CharCurrent;
+
+            // here all possible scans could be run in a loop to determine and
+            // scan current token, for speeding up this process
+            // current source character checked first
+
+            // all scan checks should be performed in particular order for
+            // getting correct result, special attention should be made for
+            // tokens of different types starting with same character sets
+
+            // here checks are done for most frequent token types first
+
+            // identifier starts with following characters, so it's most
+            // high probability to try scan identifier first
+            if (c == '_' || c >= 'A' && c <= 'Z' || c >= 'a' && c <= 'z' ||
+                c >= '\u0100' || c == '\\')
+            {
+                // try to scan identifier
+                if (ScanIdent(out token))
+                    type = TokenType.Identifier;
+            }
+            // next most frequent token type is comment, comments start with /
+            // character, so try scan a comment when / encountered
+            else if (c == '/')
+            {
+                if (ScanComment(out token))
+                    type = TokenType.Comment;
+            }
+            // from this character string literal can start
+            // try scan string
+            else if (c == '"')
+            {
+                var isstr = ScanString(() => IsEscape(EscapeCheckContext.Character), out token);
+                if (Match(isstr))
+                    type = TokenType.String;
+            }
+            // only number could start with digits, try to scan number
+            else if (c >= '0' && c <= '9')
+            {
+                // it is at least some integer number token
+                type = TokenType.Number;
+
+                // hexadecimal number literal can't have real part
+                if (!ScanHexadecimal(out token))
+                {
+                    // it's not hexadecimal number - it's integer or real
+                    ScanDecimal(out token);
+
+                    // try scan integer postfix, if there's postfix it's integer
+                    // number
+                    SourceToken tok;
+                    if (ScanIntegerPostfix(out tok))
+                        token.Length += tok.Length;
+                    else
+                    {
+                        // try to scan "fractional" part of a number
+                        if (ScanReal(out tok))
+                        {
+                            token.Length += tok.Length;
+                            type = TokenType.RealNumber;
+                        }
+                    }
+                }
+            }
+            // from this character interpolated string literal can start
+            // try scan interpolated string
+            else if (c == '$')
+            {
+                // interpolated string could be usual double quoted string or
+                // @ verbatim string, "eat" $ character and try to scan one of
+                // string variants
+                GetCharToken(false, null, out token);
+
+                SourceToken tok;
+                bool isstring = Match(AnyMatch(
+                    out tok,
+
+                    (out SourceToken t) => ScanString(
+                        () => InterpolationInnerScan(true, false), out t
+                    ),
+
+                    (out SourceToken t) => ScanVerbatimString(
+                        () => InterpolationInnerScan(false, true), out t
+                    )
+                ));
+
+                if (isstring)
+                    token.Length += tok.Length;
+
+                type = isstring ? TokenType.String : TokenType.Invalid;
+            }
+            // from . character real number can start, or it's a single dot
+            else if (c == '.')
+            {
+                if (ScanReal(out token))
+                    type = TokenType.RealNumber;
+            }
+            // from ' character only character literal can start
+            else if (c == '\'')
+            {
+                ScanCharacter(out token);
+                type = TokenType.Character;
+            }
+            // "verbatim" character can start string or @ident
+            else if (c == '@')
+            {
+                if (Match(ScanVerbatimString(null, out token)))
+                    type = TokenType.String;
+                else
+                {
+                    GetCharToken(false, null, out token);
+
+                    SourceToken ident;
+                    if (!ScanIdent(out ident))
+                        type = TokenType.Invalid;
+                    else
+                    {
+                        token.Length += ident.Length;
+                        type = TokenType.Identifier;
+                    }
+                }
+            }
+            // only preprocessor directive can start with # character
+            else if (c == '#')
+            {
+                ScanPreprocessor(out token);
+                type = TokenType.Preprocessor;
+            }
+
+            // if none of previous checks detected any kind of token
+            // this is symbol or invalid character token, check for it here
+            // try to match compounds first, and single characters next
+            if (type == TokenType.Unknown)
+            {
+                bool validsymbol =
+                    CheckAny(compounds, out token) ||
+                    CheckAny(".();,{}=[]:<>+-*/?%&|^!~", out token);
+
+                if (validsymbol)
+                    type = TokenType.Symbol;
+                else
+                {
+                    // all other stuff (unknown/invalid symbols)
+                    GetCharToken(false, null, out token);
+                    type = TokenType.Invalid;
+                }
+            }
+
+            return new Token(type, token);
         }
 
 
