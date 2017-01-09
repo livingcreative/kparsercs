@@ -37,5 +37,28 @@ namespace KParserCS
         public int Length { get; set; }
 
         public override string ToString() => $"{Start}:{Length}";
+
+        public static bool operator ==(SourceToken a, SourceToken b)
+        {
+            return a.Start == b.Start && a.Length == b.Length;
+        }
+
+        public static bool operator !=(SourceToken a, SourceToken b)
+        {
+            return a.Start != b.Start || a.Length != b.Length;
+        }
+
+        public override bool Equals(object obj)
+        {
+            return
+                obj is SourceToken ?
+                ((SourceToken)obj) == this :
+                base.Equals(obj);
+        }
+
+        public override int GetHashCode()
+        {
+            return Start + 104729 * Length;
+        }
     }
 }
