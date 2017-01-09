@@ -1,0 +1,28 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 14
+VisualStudioVersion = 14.0.25420.1
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "kparsertest", "kparsertest\kparsertest.csproj", "{9530091D-D67A-4EB6-A4AB-4D0CB9195691}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "kparser", "kparser\kparser.csproj", "{02218568-EEDC-4527-B381-4645B06C6E80}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{9530091D-D67A-4EB6-A4AB-4D0CB9195691}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9530091D-D67A-4EB6-A4AB-4D0CB9195691}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9530091D-D67A-4EB6-A4AB-4D0CB9195691}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9530091D-D67A-4EB6-A4AB-4D0CB9195691}.Release|Any CPU.Build.0 = Release|Any CPU
+		{02218568-EEDC-4527-B381-4645B06C6E80}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{02218568-EEDC-4527-B381-4645B06C6E80}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{02218568-EEDC-4527-B381-4645B06C6E80}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{02218568-EEDC-4527-B381-4645B06C6E80}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal
