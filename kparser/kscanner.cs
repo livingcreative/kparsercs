@@ -447,8 +447,9 @@ namespace KParserCS
             count <= (_source.Length - _source.Position);
 
         /// <summary>
-        /// Skips to next non space or line break character token
+        /// Skips to next non space or line break token
         /// </summary>
+        /// <param name="token">Token which contains skipped portion of source text</param>
         /// <param name="nextline">Indicates that EOL sequences should be skipped</param>
         /// <returns>
         /// Returns <c>true</c> if current position now is at valid non space or
@@ -457,14 +458,17 @@ namespace KParserCS
         /// <remarks>
         /// Skipping through line break characters/sequences increments line counter
         /// </remarks>
-        protected bool NextCharToken(bool nextline = true)
+        protected bool SkipToToken(out SourceToken token, bool nextline = true)
         {
+            token = new SourceToken(_source.Position);
+
             while (true)
             {
                 if (IsSpace)
                 {
                     // if current character is space - advance to next one
                     _source.Advance();
+                    ++token.Length;
                 }
                 else
                 {
@@ -482,6 +486,7 @@ namespace KParserCS
                         // skipping through multiple lines is allowed, skip current
                         // line break sequence and increment lines counter
                         _source.Advance(br);
+                        token.Length += br;
                         ++_lines;
                     }
                     else
@@ -492,6 +497,23 @@ namespace KParserCS
                     }
                 }
             }
+        }
+
+        /// <summary>
+        /// Skips to next non space or line break token
+        /// </summary>
+        /// <param name="nextline">Indicates that EOL sequences should be skipped</param>
+        /// <returns>
+        /// Returns <c>true</c> if current position now is at valid non space or
+        /// EOL character, <c>false</c> if EOL or end of source reached
+        /// </returns>
+        /// <remarks>
+        /// Skipping through line break characters/sequences increments line counter
+        /// </remarks>
+        protected bool SkipToToken(bool nextline = true)
+        {
+            SourceToken token;
+            return SkipToToken(out token, nextline);
         }
 
         /// <summary>
