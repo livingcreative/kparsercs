@@ -1,4 +1,18 @@
-﻿using System.Diagnostics;
+﻿/*
+        KPARSER PROJECT C# VERSION
+
+    Utilities library for parsers programming
+
+    (c) livingcreative, 2017
+
+    https://github.com/livingcreative/kparsercs
+
+    kscannerstringsource.cs
+        ScannerStringSource basic implementation of IScannerSource
+        interface which holds source text in a string
+*/
+
+using System.Diagnostics;
 
 namespace KParserCS
 {

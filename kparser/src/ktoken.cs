@@ -1,4 +1,18 @@
-﻿using System.Diagnostics;
+﻿/*
+        KPARSER PROJECT C# VERSION
+
+    Utilities library for parsers programming
+
+    (c) livingcreative, 2017
+
+    https://github.com/livingcreative/kparsercs
+
+    ktoken.cs
+        SourceToken struct, holds text range data
+        (location of a token characters inside source)
+*/
+
+using System.Diagnostics;
 
 namespace KParserCS
 {

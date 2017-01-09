@@ -1,4 +1,17 @@
-﻿namespace KParserCS
+﻿/*
+        KPARSER PROJECT C# VERSION
+
+    Utilities library for parsers programming
+
+    (c) livingcreative, 2017
+
+    https://github.com/livingcreative/kparsercs
+
+    kscannersource.cs
+        IScannerSource interface, abstraction for source text
+*/
+
+namespace KParserCS
 {
     /// <summary>
     /// Interface for scanner source

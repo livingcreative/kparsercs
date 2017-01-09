@@ -35,10 +35,10 @@
     <Reference Include="Microsoft.CSharp" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="kscanner.cs" />
-    <Compile Include="kscannersource.cs" />
-    <Compile Include="kscannerstringsource.cs" />
-    <Compile Include="ktoken.cs" />
+    <Compile Include="src\kscanner.cs" />
+    <Compile Include="src\kscannersource.cs" />
+    <Compile Include="src\kscannerstringsource.cs" />
+    <Compile Include="src\ktoken.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

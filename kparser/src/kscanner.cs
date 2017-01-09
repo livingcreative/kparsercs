@@ -1,4 +1,17 @@
-﻿using System;
+﻿/*
+        KPARSER PROJECT C# VERSION
+
+    Utilities library for parsers programming
+
+    (c) livingcreative, 2017
+
+    https://github.com/livingcreative/kparsercs
+
+    kscanner.cs
+        Scanner base class for building lexers/tokenizers
+*/
+
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;

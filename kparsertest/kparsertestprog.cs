@@ -1,13 +1,23 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Text;
+﻿/*
+        KPARSER PROJECT C# VERSION
+
+    Utilities library for parsers programming
+
+    (c) livingcreative, 2017
+
+    https://github.com/livingcreative/kparsercs
+
+    kparsertestprog.cs
+        Simple program for checking/testing library classes and
+        functionality
+*/
+
+using System;
 using KParserCS;
 
 namespace KParserCSTest
 {
-    class Program
+    class TestProgram
     {
         // just convert bool as readable PASSED/FAILED result value
         static string TestResult(bool result)
