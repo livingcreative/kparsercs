@@ -836,7 +836,7 @@ namespace KParserCS
                 );
 
                 if (result != ScanResult.NoMatch)
-                    break;
+                    return result;
             }
 
             token = new SourceToken();
