@@ -607,6 +607,7 @@ namespace KParserCS
                     length = s.Length;
                     return result;
                 }
+                ++result;
             }
 
             return NO_MATCH;
