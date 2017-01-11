@@ -524,7 +524,6 @@ namespace KParserCS
         /// <returns>Returns <c>true</c> in case of match</returns>
         protected bool GetCharToken(bool nextline, InnerScan inner, out SourceToken token, bool increment = true)
         {
-
             var result = false;
             var len = IsBreak;
 

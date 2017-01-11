@@ -1,4 +1,18 @@
-﻿using KParserCS;
+﻿/*
+        KPARSER PROJECT C# VERSION
+
+    Utilities library for parsers programming
+
+    (c) livingcreative, 2017
+
+    https://github.com/livingcreative/kparsercs
+
+    kcsscanner.cs
+        Example c# scanner implementation, general example on using
+        Scanner class
+*/
+
+using KParserCS;
 using System.Collections.Generic;
 
 namespace KCSParser
