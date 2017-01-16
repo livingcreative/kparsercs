@@ -84,8 +84,8 @@ namespace KCSParser
                 "object", "operator", "out", "override", "params", "partial", "private",
                 "protected", "public", "readonly", "ref", "return", "sbyte", "set", "short",
                 "sizeof", "static", "string", "struct", "switch", "this", "throw", "true",
-                "try", "typedef", "typeof", "uint", "ulong", "using", "ushort", "var",
-                "virtual", "void", "while", "yield"
+                "try", "typeof", "uint", "ulong", "unchecked", "unsafe", "using", "ushort",
+                "var", "virtual", "void", "while", "yield"
             };
         }
 
