@@ -14,6 +14,7 @@
 
 using KParserCS;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace KCSParser
 {
@@ -28,6 +29,7 @@ namespace KCSParser
         private string[] hexprefixes; // hexadecimal prefixes
         private string[] escapes;     // all predefined escape sequences
         private string[] compounds;   // all compound sequences
+        private string[] keywords;    // all keywords
 
         // construct scanner instance for given source
         public CSScanner(IScannerSource source) :
@@ -71,6 +73,20 @@ namespace KCSParser
                  "==", "!=", "=>", "&&", "??", "++", "--", "||", ">=", "<=",
                 "+=", "-=", "/=", "*=", "%=", "&=", "|=", "^=", "->"
             };
+
+            keywords = new string[]
+            {
+                "abstract", "as", "base", "bool", "break", "byte", "case", "catch",
+                "char", "checked", "class", "const", "continue", "decimal", "default",
+                "delegate", "do", "double", "else", "enum", "event", "extern", "false",
+                "finally", "float", "for", "foreach", "get", "goto", "if", "int",
+                "interface", "internal", "is", "lock", "long", "namespace", "new", "null",
+                "object", "operator", "out", "override", "params", "partial", "private",
+                "protected", "public", "readonly", "ref", "return", "sbyte", "set", "short",
+                "sizeof", "static", "string", "struct", "switch", "this", "throw", "true",
+                "try", "typedef", "typeof", "uint", "ulong", "using", "ushort", "var",
+                "virtual", "void", "while", "yield"
+            };
         }
 
 
@@ -78,7 +94,8 @@ namespace KCSParser
         public enum TokenType
         {
             Unknown,      // token haven't been scanned yet
-            Identifier,   // any valid identifier (including possible keywords)
+            Identifier,   // any valid identifier
+            Keyword,      // any keyword
             Number,       // any integer number, decimal or hexadecimal (might be incomplete)
             RealNumber,   // any real (float or double) number (might be incomplete)
             Character,    // character (single quoted literal, might be malformed)
@@ -129,6 +146,24 @@ namespace KCSParser
             yield break;
         }
 
+        public bool ReadToken(bool includespacers, out Token token)
+        {
+            SourceToken stok;
+            bool result = SkipToToken(out stok);
+            if (result)
+            {
+                token =
+                    includespacers && stok.Length > 0 ?
+                    new Token(TokenType.Spacer, stok) :
+                    ReadToken();
+
+                return true;
+            }
+
+            token = new Token(TokenType.Unknown, new SourceToken());
+            return result;
+        }
+
 
         // read current token
         private Token ReadToken()
@@ -154,7 +189,11 @@ namespace KCSParser
             {
                 // try to scan identifier
                 if (ScanIdent(out token))
-                    type = TokenType.Identifier;
+                {
+                    type =
+                        keywords.Contains(TokenToString(token)) ?
+                        TokenType.Keyword : TokenType.Identifier;
+                }
             }
             // next most frequent token type is comment, comments start with /
             // character, so try scan a comment when / encountered
