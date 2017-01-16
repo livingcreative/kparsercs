@@ -224,12 +224,17 @@ namespace KCSParser
 
                     // try scan integer postfix, if there's postfix it's integer
                     // number
-                    SourceToken tok;
-                    if (ScanIntegerPostfix(out tok))
-                        token.Length += tok.Length;
+                    if (ScanIntegerPostfix())
+                        ++token.Length;
+                    else if (ScanRealPostfix())
+                    {
+                        ++token.Length;
+                        type = TokenType.RealNumber;
+                    }
                     else
                     {
                         // try to scan "fractional" part of a number
+                        SourceToken tok;
                         if (ScanReal(out tok))
                         {
                             token.Length += tok.Length;
@@ -473,9 +478,15 @@ namespace KCSParser
         }
 
         // try to scan integer number postfix (lLuU)
-        private bool ScanIntegerPostfix(out SourceToken token)
+        private bool ScanIntegerPostfix()
         {
-            return CheckAny("lLuU", out token);
+            return CheckAny("lLuU") != NO_MATCH;
+        }
+
+        // try to scan real number postfix (fFdD)
+        private bool ScanRealPostfix()
+        {
+            return CheckAny("fFdDmM") != NO_MATCH;
         }
 
         // try to scan hexadecimal literal
@@ -488,9 +499,8 @@ namespace KCSParser
                 false, out token
             ));
 
-            SourceToken pf;
-            if (result && ScanIntegerPostfix(out pf))
-                token.Length += pf.Length;
+            if (result && ScanIntegerPostfix())
+                ++token.Length;
 
             return result;
         }
@@ -528,7 +538,7 @@ namespace KCSParser
                 }
 
                 // optional postfix
-                if (CheckAny("fdFD") != NO_MATCH)
+                if (ScanRealPostfix())
                     ++token.Length;
             }
 
